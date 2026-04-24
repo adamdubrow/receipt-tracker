@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0066cc">
+    <meta name="description" content="Costco Receipt Tracker - Track your purchases and monitor for price reductions">
+    <title>Costco Receipt Tracker</title>
+    <link rel="manifest" href="data:application/json,{\"name\":\"Costco Receipt Tracker\",\"short_name\":\"Receipt Tracker\",\"start_url\":\"/\",\"display\":\"standalone\",\"background_color\":\"#ffffff\",\"theme_color\":\"#0066cc\",\"icons\":[{\"src\":\"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230066cc' width='192' height='192'/><text x='50%' y='50%' font-size='100' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='central'>📦</text></svg>\",\"sizes\":\"192x192\",\"type\":\"image/svg+xml\"}]}">
+    <script async src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0066cc;
+            --primary-dark: #0052a3;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-light: #f8f9fa;
+            --bg-white: #ffffff;
+            --text-dark: #1f2937;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: var(--bg-white);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-white);
+            position: sticky;
+            top: 70px;
+            z-index: 99;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            background: none;
+            color: var(--text-muted);
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 100px;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .section {
+            padding: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-light);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(0, 102, 204, 0.05);
+        }
+
+        .upload-area.active {
+            border-color: var(--primary);
+            background: rgba(0, 102, 204, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .upload-text {
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .preview-image {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 8px;
+            margin: 1rem auto;
+            display: block;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .ocr-progress {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .ocr-progress-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .extracted-text {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 200px;
+            overflow-y: auto;
+            color: var(--text-muted);
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:active {
+            background: var(--primary-dark);
+            transform: scale(0.98);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--bg-light);
+            color: var(--text-dark);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:active {
+            background: var(--border);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-danger:active {
+            background: #dc2626;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="date"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+        }
+
+        .product-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .product-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .product-card:active {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .product-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.75rem;
+        }
+
+        .product-name {
+            font-weight: 700;
+            color: var(--text-dark);
+            flex: 1;
+            margin-right: 0.5rem;
+        }
+
+        .product-price {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .product-details {
+            display: flex;
+            gap: 1rem;
+            margin: 0.75rem 0;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .price-comparison {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin: 0.75rem 0;
+        }
+
+        .price-comparison.up {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+        }
+
+        .price-change {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .product-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            animation: slideUp 0.3s ease;
+            max-width: 90%;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateX(-50%) translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            background: var(--success);
+        }
+
+        .notification.error {
+            background: var(--danger);
+        }
+
+        .notification.info {
+            background: var(--primary);
+        }
+
+        .fab {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 50;
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+            box-shadow: var(--shadow);
+        }
+
+        .receipt-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .receipt-item {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .receipt-item:active {
+            transform: translateX(4px);
+        }
+
+        .receipt-date {
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .receipt-summary {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .manual-entry-section {
+            background: var(--bg-light);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 1rem 0;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 0;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @supports (padding: max(0px)) {
+            header {
+                padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+            }
+
+            .tab-content {
+                padding-bottom: max(100px, calc(env(safe-area-inset-bottom) + 100px));
+            }
+
+            .fab {
+                bottom: max(1.5rem, env(safe-area-inset-bottom));
+                right: max(1.5rem, env(safe-area-inset-right));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 Receipt Tracker</h1>
+            <p>Track purchases & monitor for price reductions</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('scanner')">📸 Scan</button>
+            <button class="tab-btn" onclick="switchTab('products')">Items</button>
+            <button class="tab-btn" onclick="switchTab('receipts')">Receipts</button>
+            <button class="tab-btn" onclick="switchTab('dashboard')">📊 Stats</button>
+        </div>
+
+        <!-- Scanner Tab -->
+        <div id="scanner" class="tab-content active">
+            <div class="section">
+                <h2 class="section-title">Scan Receipt</h2>
+                <div class="upload-area" id="upload-area" onclick="document.getElementById('receipt-image').click()">
+                    <div class="upload-icon">📸</div>
+                    <div class="upload-text">Tap to take photo or upload</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">PNG, JPG, or PDF</div>
+                </div>
+                <input type="file" id="receipt-image" accept="image/*" onchange="handleImageUpload(event)">
+
+                <div id="preview-container" style="display: none; margin-top: 1.5rem;">
+                    <img id="preview-img" class="preview-image">
+                    <div id="ocr-status" style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin: 1rem 0;">
+                        Extracting text...
+                    </div>
+                    <div class="ocr-progress" id="ocr-progress">
+                        <div class="ocr-progress-bar" id="ocr-progress-bar"></div>
+                    </div>
+                    <div class="extracted-text" id="extracted-text"></div>
+                </div>
+
+                <div id="manual-extraction" style="display: none; margin-top: 2rem;">
+                    <h2 class="section-title">Review & Add Items</h2>
+                    <div id="extracted-items-list"></div>
+                    <button class="btn-primary" onclick="confirmReceipt()" style="margin-top: 1rem;">✅ Confirm & Save</button>
+                </div>
+            </div>
+
+            <div class="section manual-entry-section" style="margin-top: 2rem;">
+                <h2 class="section-title">Or Add Items Manually</h2>
+                <div class="input-group">
+                    <label>Date of Purchase</label>
+                    <input type="date" id="manual-date" value="">
+                </div>
+                <div class="input-group">
+                    <label>Product Name</label>
+                    <input type="text" id="manual-name" placeholder="e.g., Organic Eggs">
+                </div>
+                <div class="input-group">
+                    <label>Purchase Price</label>
+                    <input type="number" id="manual-price" placeholder="9.99" step="0.01" min="0">
+                </div>
+                <div class="input-group">
+                    <label>Category (Optional)</label>
+                    <input type="text" id="manual-category" placeholder="e.g., Groceries">
+                </div>
+                <button class="btn-primary" onclick="addManualProduct()">➕ Add Item</button>
+            </div>
+        </div>
+
+        <!-- Products Tab -->
+        <div id="products" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Your Purchases</h2>
+                <div id="product-list" class="product-list"></div>
+            </div>
+        </div>
+
+        <!-- Receipts Tab -->
+        <div id="receipts" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Receipt History</h2>
+                <div id="receipt-list" class="receipt-list"></div>
+            </div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Overview</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-products">0</div>
+                        <div class="stat-label">Items Tracked</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="total-spent">$0</div>
+                        <div class="stat-label">Total Spent</div>
+                    </div>
+                </div>
+
+                <h2 class="section-title" style="margin-top: 2rem;">Tips for Monitoring</h2>
+                <div style="background: var(--bg-light); padding: 1rem; border-radius: 8px; font-size: 0.95rem; line-height: 1.8;">
+                    <p><strong>💡 How to track price changes:</strong></p>
+                    <p style="margin-top: 0.5rem;">1. Manually update prices when you see items on sale at Costco.com</p>
+                    <p>2. Use the "Update Price" button on each item</p>
+                    <p>3. This app will show you savings vs. what you paid</p>
+                    <p style="margin-top: 1rem;"><strong>📱 Next: Get notifications</strong></p>
+                    <p>In Phase 2, we'll add automatic price monitoring from Costco.com</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="fab" onclick="switchTab('scanner')" title="Scan new receipt">+</button>
+
+    <script>
+        let products = JSON.parse(localStorage.getItem('costco-products')) || [];
+        let receipts = JSON.parse(localStorage.getItem('costco-receipts')) || [];
+        let currentReceiptItems = [];
+        let currentReceiptDate = new Date().toISOString().split('T')[0];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set today's date as default
+            document.getElementById('manual-date').valueAsDate = new Date();
+            renderProductList();
+            renderReceiptList();
+            renderDashboard();
+        });
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imgData = e.target.result;
+                document.getElementById('preview-img').src = imgData;
+                document.getElementById('preview-container').style.display = 'block';
+                document.getElementById('manual-extraction').style.display = 'none';
+                currentReceiptItems = [];
+
+                // Start OCR
+                extractTextFromReceipt(imgData);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function extractTextFromReceipt(imgData) {
+            try {
+                showNotification('Processing receipt...', 'info');
+                const progressBar = document.getElementById('ocr-progress-bar');
+                const statusDiv = document.getElementById('ocr-status');
+
+                const result = await Tesseract.recognize(imgData, 'eng', {
+                    logger: (m) => {
+                        const progress = Math.round(m.progress * 100);
+                        progressBar.style.width = progress + '%';
+                        if (m.status === 'recognizing text') {
+                            statusDiv.textContent = `Recognizing text... ${progress}%`;
+                        }
+                    }
+                });
+
+                const text = result.data.text;
+                document.getElementById('extracted-text').textContent = text;
+
+                // Parse receipt items
+                parseReceiptText(text);
+                showNotification('✅ Receipt processed!', 'success');
+
+            } catch (error) {
+                showNotification('Error processing receipt. Try manual entry.', 'error');
+                console.error('OCR Error:', error);
+            }
+        }
+
+        function parseReceiptText(text) {
+            // Simple parser for receipt format
+            // Costco receipts have item names followed by prices
+            const lines = text.split('\n').filter(line => line.trim());
+            const items = [];
+
+            // Look for common price patterns: $X.XX
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                const priceMatch = line.match(/\$(\d+\.\d{2})/);
+
+                if (priceMatch) {
+                    const price = parseFloat(priceMatch[1]);
+                    // The item name is usually on the same or previous line
+                    const itemName = line.replace(/\$[\d.]+/g, '').trim() || (i > 0 ? lines[i-1].trim() : '');
+
+                    if (itemName && itemName.length > 2) {
+                        items.push({
+                            name: itemName,
+                            price: price,
+                            category: 'General'
+                        });
+                    }
+                }
+            }
+
+            // Remove duplicates
+            const uniqueItems = [];
+            const seen = new Set();
+            for (const item of items) {
+                const key = item.name.toLowerCase() + item.price;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueItems.push(item);
+                }
+            }
+
+            currentReceiptItems = uniqueItems;
+            renderExtractedItems();
+        }
+
+        function renderExtractedItems() {
+            const container = document.getElementById('extracted-items-list');
+            const manualSection = document.getElementById('manual-extraction');
+
+            if (currentReceiptItems.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 1rem; background: var(--bg-light); border-radius: 8px; color: var(--text-muted);">
+                        No items detected. Please add items manually below.
+                    </div>
+                `;
+                manualSection.style.display = 'block';
+                return;
+            }
+
+            manualSection.style.display = 'block';
+            container.innerHTML = currentReceiptItems.map((item, idx) => `
+                <div style="background: var(--bg-light); padding: 1rem; border-radius: 8px; margin-bottom: 0.75rem;">
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="flex: 1;">
+                            <input type="text" value="${item.name}" placeholder="Item name" 
+                                onchange="currentReceiptItems[${idx}].name = this.value"
+                                style="width: 100%; margin-bottom: 0.5rem;">
+                            <input type="text" value="${item.category || 'General'}" placeholder="Category"
+                                onchange="currentReceiptItems[${idx}].category = this.value"
+                                style="width: 100%;">
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">
+                                $${item.price.toFixed(2)}
+                            </div>
+                            <input type="number" value="${item.price}" step="0.01" 
+                                onchange="currentReceiptItems[${idx}].price = parseFloat(this.value)"
+                                style="width: 80px;">
+                        </div>
+                    </div>
+                    <button class="btn-danger" onclick="currentReceiptItems.splice(${idx}, 1); renderExtractedItems();" 
+                        style="width: 100%; margin-top: 0.75rem;">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function addManualProduct() {
+            const date = document.getElementById('manual-date').value;
+            const name = document.getElementById('manual-name').value.trim();
+            const price = parseFloat(document.getElementById('manual-price').value);
+            const category = document.getElementById('manual-category').value.trim() || 'General';
+
+            if (!name || !price || price <= 0 || !date) {
+                showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+
+            const product = {
+                id: Date.now(),
+                name,
+                price,
+                originalPrice: price,
+                category,
+                dateAdded: date,
+                currentPrice: price,
+                lowestPrice: price,
+                priceHistory: [{ date, price }],
+                receiptId: null
+            };
+
+            products.push(product);
+            localStorage.setItem('costco-products', JSON.stringify(products));
+
+            // Clear inputs
+            document.getElementById('manual-name').value = '';
+            document.getElementById('manual-price').value = '';
+            document.getElementById('manual-category').value = '';
+
+            renderProductList();
+            renderDashboard();
+            showNotification('✅ Item added!', 'success');
+        }
+
+        function confirmReceipt() {
+            if (currentReceiptItems.length === 0) {
+                showNotification('No items to save', 'error');
+                return;
+            }
+
+            const receipt = {
+                id: Date.now(),
+                date: currentReceiptDate,
+                itemCount: currentReceiptItems.length,
+                items: currentReceiptItems,
+                totalSpent: currentReceiptItems.reduce((sum, item) => sum + item.price, 0)
+            };
+
+            // Add items to products
+            for (const item of currentReceiptItems) {
+                const product = {
+                    id: Date.now() + Math.random(),
+                    name: item.name,
+                    price: item.price,
+                    originalPrice: item.price,
+                    category: item.category,
+                    dateAdded: currentReceiptDate,
+                    currentPrice: item.price,
+                    lowestPrice: item.price,
+                    priceHistory: [{ date: currentReceiptDate, price: item.price }],
+                    receiptId: receipt.id
+                };
+                products.push(product);
+            }
+
+            receipts.push(receipt);
+            localStorage.setItem('costco-products', JSON.stringify(products));
+            localStorage.setItem('costco-receipts', JSON.stringify(receipts));
+
+            // Reset
+            currentReceiptItems = [];
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('manual-extraction').style.display = 'none';
+            document.getElementById('receipt-image').value = '';
+
+            renderProductList();
+            renderReceiptList();
+            renderDashboard();
+            switchTab('products');
+            showNotification('✅ Receipt saved! Items added to tracking.', 'success');
+        }
+
+        function updatePrice(id) {
+            const newPrice = prompt('Enter current price at Costco:');
+            if (newPrice !== null) {
+                const product = products.find(p => p.id === id);
+                if (product) {
+                    const price = parseFloat(newPrice);
+                    if (price > 0) {
+                        product.priceHistory.push({
+                            date: new Date().toLocaleDateString(),
+                            price
+                        });
+                        product.currentPrice = price;
+                        product.lowestPrice = Math.min(product.lowestPrice, price);
+                        localStorage.setItem('costco-products', JSON.stringify(products));
+                        renderProductList();
+                        renderDashboard();
+                        showNotification('Price updated!', 'success');
+                    }
+                }
+            }
+        }
+
+        function removeProduct(id) {
+            if (confirm('Remove this item from tracking?')) {
+                products = products.filter(p => p.id !== id);
+                localStorage.setItem('costco-products', JSON.stringify(products));
+                renderProductList();
+                renderDashboard();
+                showNotification('Item removed', 'success');
+            }
+        }
+
+        function renderProductList() {
+            const listContainer = document.getElementById('product-list');
+
+            if (products.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📦</div>
+                        <h2>No items tracked yet</h2>
+                        <p>Scan a receipt or add items manually to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listContainer.innerHTML = products.map(product => {
+                const savings = product.originalPrice - product.currentPrice;
+                const savingsPercent = product.originalPrice > 0 ? ((savings / product.originalPrice) * 100).toFixed(1) : 0;
+                const hasDrop = product.currentPrice < product.originalPrice;
+                const hasIncrease = product.currentPrice > product.originalPrice;
+
+                return `
+                    <div class="product-card">
+                        <div class="product-header">
+                            <div style="flex: 1;">
+                                <div class="product-name">${product.name}</div>
+                                <div class="product-details">
+                                    <span class="detail-item">📅 ${product.dateAdded}</span>
+                                    <span class="detail-item">🏷️ ${product.category}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: baseline; gap: 1rem; margin: 0.75rem 0;">
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">Paid</div>
+                                <div class="product-price">$${product.price.toFixed(2)}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">Current</div>
+                                <div class="product-price" style="color: ${product.currentPrice < product.price ? 'var(--success)' : (product.currentPrice > product.price ? 'var(--danger)' : 'var(--primary)')};">
+                                    $${product.currentPrice.toFixed(2)}
+                                </div>
+                            </div>
+                        </div>
+
+                        ${hasDrop ? `
+                            <div class="price-comparison">
+                                <div class="price-change" style="color: var(--success);">
+                                    ✅ Save $${savings.toFixed(2)} (-${savingsPercent}%)
+                                </div>
+                            </div>
+                        ` : (hasIncrease ? `
+                            <div class="price-comparison up">
+                                <div class="price-change" style="color: var(--danger);">
+                                    ⚠️ Price up $${Math.abs(savings).toFixed(2)} (+${Math.abs(savingsPercent)}%)
+                                </div>
+                            </div>
+                        ` : '')}
+
+                        <div class="product-actions">
+                            <button class="btn-secondary" onclick="updatePrice(${product.id})" style="flex: 1;">📊 Update Price</button>
+                            <button class="btn-danger" onclick="removeProduct(${product.id})">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderReceiptList() {
+            const container = document.getElementById('receipt-list');
+
+            if (receipts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🧾</div>
+                        <h2>No receipts yet</h2>
+                        <p>Scan your first receipt to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = receipts.map(receipt => {
+                const receiptProducts = products.filter(p => p.receiptId === receipt.id);
+                return `
+                    <div class="receipt-item" onclick="alert('${receipt.itemCount} items • Total: $${receipt.totalSpent.toFixed(2)}')">
+                        <div class="receipt-date">${receipt.date}</div>
+                        <div class="receipt-summary">${receipt.itemCount} items • Total: $${receipt.totalSpent.toFixed(2)}</div>
+                    </div>
+                `;
+            }).reverse().join('');
+        }
+
+        function renderDashboard() {
+            const totalProducts = products.length;
+            const totalSpent = products.reduce((sum, p) => sum + p.price, 0);
+
+            document.getElementById('total-products').textContent = totalProducts;
+            document.getElementById('total-spent').textContent = '$' + totalSpent.toFixed(2);
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
