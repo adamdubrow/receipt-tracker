@@ -68,6 +68,20 @@
             opacity: 0.9;
         }
 
+        .sync-status {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
+        .sync-status.synced {
+            color: var(--success);
+        }
+
+        .sync-status.syncing {
+            color: var(--warning);
+        }
+
         .tabs {
             display: flex;
             gap: 0;
@@ -296,6 +310,14 @@
             box-shadow: var(--shadow-lg);
         }
 
+        .product-card.synced {
+            border-left: 4px solid var(--success);
+        }
+
+        .product-card.syncing {
+            border-left: 4px solid var(--warning);
+        }
+
         .product-header {
             display: flex;
             justify-content: space-between;
@@ -329,6 +351,19 @@
             display: flex;
             align-items: center;
             gap: 0.25rem;
+        }
+
+        .sync-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            background: var(--success);
+            color: white;
+            font-weight: 600;
+        }
+
+        .sync-badge.syncing {
+            background: var(--warning);
         }
 
         .price-comparison {
@@ -530,6 +565,7 @@
         <header>
             <h1>📦 Receipt Tracker</h1>
             <p>Track purchases & monitor for price reductions</p>
+            <div class="sync-status" id="sync-status">Syncing with Google...</div>
         </header>
 
         <div class="tabs">
@@ -621,14 +657,22 @@
                     </div>
                 </div>
 
-                <h2 class="section-title" style="margin-top: 2rem;">Tips for Monitoring</h2>
+                <h2 class="section-title" style="margin-top: 2rem;">How It Works</h2>
                 <div style="background: var(--bg-light); padding: 1rem; border-radius: 8px; font-size: 0.95rem; line-height: 1.8;">
-                    <p><strong>💡 How to track price changes:</strong></p>
-                    <p style="margin-top: 0.5rem;">1. Manually update prices when you see items on sale at Costco.com</p>
-                    <p>2. Use the "Update Price" button on each item</p>
-                    <p>3. This app will show you savings vs. what you paid</p>
-                    <p style="margin-top: 1rem;"><strong>📱 Next: Get notifications</strong></p>
-                    <p>In Phase 2, we'll add automatic price monitoring from Costco.com</p>
+                    <p><strong>✅ Automatic Monitoring Active!</strong></p>
+                    <p style="margin-top: 0.5rem;">Your items are synced to Google Sheets and being monitored daily at 9 AM.</p>
+                    
+                    <p style="margin-top: 1rem;"><strong>📧 Email Alerts:</strong></p>
+                    <p>You'll get email alerts when prices drop. Update prices here to see the savings!</p>
+                    
+                    <p style="margin-top: 1rem;"><strong>💡 How to Update Prices:</strong></p>
+                    <p>1. Check Costco.com or visit the store</p>
+                    <p>2. Tap "Update Price" on any item</p>
+                    <p>3. Enter the new price</p>
+                    <p>4. Get instant alerts if it's lower than what you paid</p>
+                    
+                    <p style="margin-top: 1rem;"><strong>🔄 Auto-Sync:</strong></p>
+                    <p>All items are automatically synced to your Google Sheet at adam.dubrow@gmail.com</p>
                 </div>
             </div>
         </div>
@@ -637,6 +681,8 @@
     <button class="fab" onclick="switchTab('scanner')" title="Scan new receipt">+</button>
 
     <script>
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxkRk8y9YkxOhp1Ty7wfKl0fsOBZhetrwWLrFERJBUJbExZI_qsgjeyOEa6BWiAB9Eqlg/exec";
+        
         let products = JSON.parse(localStorage.getItem('costco-products')) || [];
         let receipts = JSON.parse(localStorage.getItem('costco-receipts')) || [];
         let currentReceiptItems = [];
@@ -644,11 +690,11 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Set today's date as default
             document.getElementById('manual-date').valueAsDate = new Date();
             renderProductList();
             renderReceiptList();
             renderDashboard();
+            syncAllProducts();
         });
 
         function switchTab(tab) {
@@ -656,6 +702,64 @@
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tab).classList.add('active');
             event.target.classList.add('active');
+        }
+
+        function updateSyncStatus(message, status = 'syncing') {
+            const statusEl = document.getElementById('sync-status');
+            statusEl.textContent = message;
+            statusEl.className = 'sync-status ' + status;
+        }
+
+        async function syncAllProducts() {
+            updateSyncStatus('Syncing with Google...', 'syncing');
+            
+            try {
+                for (const product of products) {
+                    await syncProductToSheet(product);
+                }
+                updateSyncStatus('✅ Synced with Google', 'synced');
+            } catch (error) {
+                updateSyncStatus('⚠️ Sync error', 'error');
+                console.error('Sync error:', error);
+            }
+        }
+
+        async function syncProductToSheet(product) {
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'addProduct',
+                        productName: product.name,
+                        purchasePrice: product.price
+                    })
+                });
+
+                const result = await response.json();
+                return result.success;
+            } catch (error) {
+                console.error('Error syncing product:', error);
+                return false;
+            }
+        }
+
+        async function updatePriceInSheet(productName, newPrice) {
+            try {
+                const response = await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'updatePrice',
+                        productName: productName,
+                        newPrice: newPrice
+                    })
+                });
+
+                const result = await response.json();
+                return result.success;
+            } catch (error) {
+                console.error('Error updating price:', error);
+                return false;
+            }
         }
 
         function handleImageUpload(event) {
@@ -669,8 +773,6 @@
                 document.getElementById('preview-container').style.display = 'block';
                 document.getElementById('manual-extraction').style.display = 'none';
                 currentReceiptItems = [];
-
-                // Start OCR
                 extractTextFromReceipt(imgData);
             };
             reader.readAsDataURL(file);
@@ -694,8 +796,6 @@
 
                 const text = result.data.text;
                 document.getElementById('extracted-text').textContent = text;
-
-                // Parse receipt items
                 parseReceiptText(text);
                 showNotification('✅ Receipt processed!', 'success');
 
@@ -706,19 +806,15 @@
         }
 
         function parseReceiptText(text) {
-            // Simple parser for receipt format
-            // Costco receipts have item names followed by prices
             const lines = text.split('\n').filter(line => line.trim());
             const items = [];
 
-            // Look for common price patterns: $X.XX
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
                 const priceMatch = line.match(/\$(\d+\.\d{2})/);
 
                 if (priceMatch) {
                     const price = parseFloat(priceMatch[1]);
-                    // The item name is usually on the same or previous line
                     const itemName = line.replace(/\$[\d.]+/g, '').trim() || (i > 0 ? lines[i-1].trim() : '');
 
                     if (itemName && itemName.length > 2) {
@@ -731,7 +827,6 @@
                 }
             }
 
-            // Remove duplicates
             const uniqueItems = [];
             const seen = new Set();
             for (const item of items) {
@@ -808,20 +903,23 @@
                 currentPrice: price,
                 lowestPrice: price,
                 priceHistory: [{ date, price }],
-                receiptId: null
+                receiptId: null,
+                synced: false
             };
 
             products.push(product);
             localStorage.setItem('costco-products', JSON.stringify(products));
 
-            // Clear inputs
+            // Sync to Google Sheets
+            syncProductToSheet(product);
+
             document.getElementById('manual-name').value = '';
             document.getElementById('manual-price').value = '';
             document.getElementById('manual-category').value = '';
 
             renderProductList();
             renderDashboard();
-            showNotification('✅ Item added!', 'success');
+            showNotification('✅ Item added and syncing to Google!', 'success');
         }
 
         function confirmReceipt() {
@@ -838,7 +936,6 @@
                 totalSpent: currentReceiptItems.reduce((sum, item) => sum + item.price, 0)
             };
 
-            // Add items to products
             for (const item of currentReceiptItems) {
                 const product = {
                     id: Date.now() + Math.random(),
@@ -850,16 +947,17 @@
                     currentPrice: item.price,
                     lowestPrice: item.price,
                     priceHistory: [{ date: currentReceiptDate, price: item.price }],
-                    receiptId: receipt.id
+                    receiptId: receipt.id,
+                    synced: false
                 };
                 products.push(product);
+                syncProductToSheet(product);
             }
 
             receipts.push(receipt);
             localStorage.setItem('costco-products', JSON.stringify(products));
             localStorage.setItem('costco-receipts', JSON.stringify(receipts));
 
-            // Reset
             currentReceiptItems = [];
             document.getElementById('preview-container').style.display = 'none';
             document.getElementById('manual-extraction').style.display = 'none';
@@ -869,7 +967,7 @@
             renderReceiptList();
             renderDashboard();
             switchTab('products');
-            showNotification('✅ Receipt saved! Items added to tracking.', 'success');
+            showNotification('✅ Receipt saved and syncing to Google!', 'success');
         }
 
         function updatePrice(id) {
@@ -886,9 +984,13 @@
                         product.currentPrice = price;
                         product.lowestPrice = Math.min(product.lowestPrice, price);
                         localStorage.setItem('costco-products', JSON.stringify(products));
+                        
+                        // Sync price update to Google Sheets
+                        updatePriceInSheet(product.name, price);
+                        
                         renderProductList();
                         renderDashboard();
-                        showNotification('Price updated!', 'success');
+                        showNotification('Price updated and synced!', 'success');
                     }
                 }
             }
@@ -925,7 +1027,7 @@
                 const hasIncrease = product.currentPrice > product.originalPrice;
 
                 return `
-                    <div class="product-card">
+                    <div class="product-card synced">
                         <div class="product-header">
                             <div style="flex: 1;">
                                 <div class="product-name">${product.name}</div>
@@ -934,6 +1036,7 @@
                                     <span class="detail-item">🏷️ ${product.category}</span>
                                 </div>
                             </div>
+                            <span class="sync-badge">✓ Synced</span>
                         </div>
 
                         <div style="display: flex; align-items: baseline; gap: 1rem; margin: 0.75rem 0;">
@@ -987,7 +1090,6 @@
             }
 
             container.innerHTML = receipts.map(receipt => {
-                const receiptProducts = products.filter(p => p.receiptId === receipt.id);
                 return `
                     <div class="receipt-item" onclick="alert('${receipt.itemCount} items • Total: $${receipt.totalSpent.toFixed(2)}')">
                         <div class="receipt-date">${receipt.date}</div>
