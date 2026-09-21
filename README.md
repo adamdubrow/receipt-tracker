@@ -97,4 +97,10 @@ The same method works for `costco-import.js`, uploaded to the top of the repo in
   2. **Costco's catalog**: official product names, fetched by item number during each import. Shown as "Name from costco.com catalog." They describe the *current* listing, so a pack size can differ from what I bought years ago; the receipt text stays visible in each item's detail.
   3. **Suggested**: generated from receipt abbreviations, labelled "suggested," and possibly wrong. Only used where the catalog has nothing.
 - **Online orders** leave out delivery fees and cancelled items. Order-level discounts aren't spread across lines.
+- **Savings tab: price adjustments.** Costco refunds the difference if its price drops within **30 days** of purchase (warehouse against warehouse, online against online). The tab shows:
+  - **Likely owed:** something still inside its 30 days that a later trip shows at a lower price, with the amount and the deadline. A number badge on the tab counts these.
+  - **Still in the window:** everything bought in the last 30 days, soonest deadline first, for checking against shelf tags.
+  - **Recently missed:** drops found after the window closed (last 90 days).
+  - To claim a warehouse purchase: Member Services at the same warehouse, with the item number. Online orders: the Price Adjustment form on costco.com.
+  - It only knows prices from my own receipts, so it catches drops on things I buy again. Importing more often makes it more useful.
 - **Stats → Price changes** compares the first and latest price paid for anything bought at least three times.
