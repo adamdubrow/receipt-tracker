@@ -131,6 +131,14 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
 .pastebox{width:100%;min-height:8rem;font-family:var(--mono);font-size:.78rem;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:.5rem;margin:0 0 .7rem;resize:vertical}
 .row2{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
 
+.badge{display:inline-block;min-width:1.25rem;height:1.25rem;line-height:1.25rem;font-size:.72rem;font-weight:800;text-align:center;border-radius:999px;background:var(--hl);color:var(--hl-ink);margin-left:.35rem;padding:0 .3rem;vertical-align:.12em}
+.owed{background:var(--paper-2);border-radius:8px;padding:.8rem .9rem;margin:0 0 .6rem;border-left:4px solid var(--hl)}
+.owed.maybe{border-left-color:var(--rule)}
+.owed .amt{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500;font-size:1.1rem;float:right;margin-left:.8rem}
+.owed .how{font-size:.86rem;color:var(--muted);margin-top:.25rem}
+.days{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.days.soon{color:var(--neg);font-weight:500}
+
 /* Stats */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.6rem;margin:.4rem 0 1.4rem}
 .kpi{background:var(--paper-2);border-radius:8px;padding:.75rem .85rem}
@@ -207,6 +215,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     <div class="tabs" role="tablist" aria-label="Views">
       <button type="button" role="tab" data-view="items" aria-selected="true">Items</button>
       <button type="button" role="tab" data-view="trips" aria-selected="false">Trips</button>
+      <button type="button" role="tab" data-view="savings" aria-selected="false">Savings<span id="owedBadge" class="badge" hidden></span></button>
       <button type="button" role="tab" data-view="stats" aria-selected="false">Stats</button>
     </div>
 
@@ -307,7 +316,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
         let it = items.get(l.n);
         if (!it) { it = { n: l.n, d: l.d, buys: [], newest: "" }; items.set(l.n, it); }
         if (t.date > it.newest) { it.newest = t.date; it.d = l.d; }
-        it.buys.push({ date: t.date, wh: t.wh, q: l.q, u: l.u, net: l.net, disc: l.disc, ret: l.ret || l.q < 0, bc: t.bc });
+        it.buys.push({ date: t.date, wh: t.wh, q: l.q, u: l.u, a: l.a, net: l.net, disc: l.disc, ret: l.ret || l.q < 0, bc: t.bc });
       }
     }
     for (const it of items.values()) it.buys.sort((a, b) => b.date.localeCompare(a.date));
@@ -319,6 +328,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     $("#wh").innerHTML = '<option value="">All locations</option>' + whs.map(w => `<option value="${esc(w)}"${w === state.wh ? " selected" : ""}>${esc(titleCase(w))}</option>`).join("");
     if (state.wh && !whs.includes(state.wh)) state.wh = "";
     updateSummary();
+    updateBadge();
   }
 
   function updateSummary() {
@@ -524,12 +534,115 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     </div>`;
   }
 
+  /* ---------- savings: Costco's 30-day price adjustment ---------- */
+  const WINDOW = 30;
+  const dayNum = d => Math.floor(Date.parse(d + "T00:00:00Z") / 86400000);
+  const todayStr = () => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; };
+  const addDays = (d, n) => new Date((dayNum(d) + n) * 86400000).toISOString().slice(0, 10);
+
+  // What one unit really cost after instant savings. Items sold by weight
+  // (amount isn't price x quantity) are compared per pound instead.
+  function unitCost(b) {
+    if (!(b.q > 0) || !(b.u > 0) || !(b.net > 0)) return null;
+    const weighed = Math.abs((b.a || 0) - b.u * b.q) > 0.02 && b.a > 0;
+    if (weighed) { const lbs = b.a / b.u; return { per: b.net / lbs, units: lbs, weighed: true }; }
+    return { per: b.net / b.q, units: b.q, weighed: false };
+  }
+
+  function computeSavings() {
+    const today = dayNum(todayStr());
+    const open = [], owed = [], missed = [];
+    for (const it of items.values()) {
+      if (!it.n || it.n === "0") continue;
+      const buys = it.buys.filter(b => !b.ret && unitCost(b));
+      for (const p of buys) {
+        const pc = unitCost(p);
+        const age = today - dayNum(p.date);
+        const deadline = addDays(p.date, WINDOW);
+        const stillOpen = age <= WINDOW;
+        if (stillOpen && age >= 0) open.push({ it, p, pc, daysLeft: WINDOW - age, deadline });
+        if (age > 90) continue;
+
+        // Same channel only: online against online, warehouse against warehouse.
+        let best = null;
+        for (const l of buys) {
+          if (l === p) continue;
+          const gap = dayNum(l.date) - dayNum(p.date);
+          if (gap <= 0 || gap > WINDOW) continue;
+          if ((l.wh === "ONLINE") !== (p.wh === "ONLINE")) continue;
+          const lc = unitCost(l);
+          if (lc.weighed !== pc.weighed) continue;
+          if (lc.per < pc.per - 0.009 && (!best || lc.per < best.lc.per)) best = { l, lc };
+        }
+        if (!best) continue;
+        const amount = +((pc.per - best.lc.per) * pc.units).toFixed(2);
+        if (amount < 0.5) continue;
+        const rec = { it, p, pc, l: best.l, lc: best.lc, amount, deadline, daysLeft: WINDOW - age,
+                      sameStore: best.l.wh === p.wh };
+        (stillOpen ? owed : missed).push(rec);
+      }
+    }
+    open.sort((a, b) => a.daysLeft - b.daysLeft || a.p.date.localeCompare(b.p.date));
+    owed.sort((a, b) => a.daysLeft - b.daysLeft);
+    missed.sort((a, b) => b.p.date.localeCompare(a.p.date));
+    return { open, owed, missed };
+  }
+
+  function updateBadge() {
+    const n = trips.length ? computeSavings().owed.filter(o => o.sameStore).length : 0;
+    const b = $("#owedBadge");
+    b.hidden = !n; b.textContent = n || "";
+  }
+
+  function renderSavings() {
+    const { open, owed, missed } = computeSavings();
+    const per = c => c.weighed ? `${money(c.per)}/lb` : `${money(c.per)} each`;
+    const where = w => w === "ONLINE" ? "online" : `at ${titleCase(w)}`;
+    const howTo = w => w === "ONLINE"
+      ? "Claim with the Price Adjustment form on costco.com (Orders & Returns). For online orders the 30 days run from the ship date, so you may have a little longer."
+      : `Claim at Member Services at ${titleCase(w)} with the item number. Your membership card is enough; a receipt makes it faster.`;
+    const days = n => `<span class="days${n <= 5 ? " soon" : ""}">${n === 0 ? "last day" : n + (n === 1 ? " day" : " days")} left</span>`;
+
+    const owedCard = o => `<div class="owed${o.sameStore ? "" : " maybe"}">
+        <span class="amt">${money(o.amount)}</span>
+        <button class="goto" type="button" data-goto="${esc(o.it.n)}" style="font-weight:700">${esc(displayName(o.it.n, o.it.d))}</button>
+        <div class="sub">Paid ${per(o.pc)} ${where(o.p.wh)} on ${fmtDate(o.p.date)}. You paid ${per(o.lc)} ${where(o.l.wh)} on ${fmtDate(o.l.date)}.</div>
+        <div class="how">${o.sameStore ? "" : "<b>Lower at a different warehouse</b>, and prices can vary by location, so this one is worth asking about rather than certain. "}Claim by ${fmtDate(o.deadline)}, ${days(o.daysLeft)}. ${howTo(o.p.wh)}</div>
+      </div>`;
+
+    const openRows = open.length ? `<table class="tbl"><tbody>${open.map(o => `<tr>
+        <td><button class="goto" type="button" data-goto="${esc(o.it.n)}">${esc(displayName(o.it.n, o.it.d))}</button>
+          <div class="sub"><span class="itemno">#${esc(o.it.n)}</span> ${fmtDate(o.p.date)} ${where(o.p.wh)}</div></td>
+        <td class="r">${per(o.pc)}<div>${days(o.daysLeft)}</div></td></tr>`).join("")}</tbody></table>`
+      : `<p class="count">Nothing bought in the last 30 days.</p>`;
+
+    const missedRows = missed.length ? `<table class="tbl"><tbody>${missed.slice(0, 15).map(o => `<tr>
+        <td><button class="goto" type="button" data-goto="${esc(o.it.n)}">${esc(displayName(o.it.n, o.it.d))}</button>
+          <div class="sub">${per(o.pc)} on ${fmtDate(o.p.date)}, then ${per(o.lc)} on ${fmtDate(o.l.date)}${o.sameStore ? "" : " (different warehouse)"}</div></td>
+        <td class="r">${money(o.amount)}</td></tr>`).join("")}</tbody></table>`
+      : `<p class="count">None in the last 90 days.</p>`;
+
+    return `<div class="stat">
+      <p class="hint" style="margin-top:.4rem">Costco refunds the difference when its own price drops within 30 days of your purchase. Warehouse and online prices are separate, so each is only compared with itself. These checks use real prices from your own receipts, after instant savings.</p>
+      <h2>Likely owed</h2>
+      ${owed.length ? owed.map(owedCard).join("") : `<p class="count">Nothing yet. This fills in when a later trip shows a lower price on something still inside its 30 days.</p>`}
+      <h2>Still in the window</h2>
+      <p class="hint">Everything bought in the last 30 days, soonest deadline first. If a shelf tag shows less than what's here, you're owed the difference.</p>
+      ${openRows}
+      <h2>Recently missed</h2>
+      <p class="hint">Drops found after the 30 days had passed, over the last 90 days. No longer claimable, but it shows what to watch for.</p>
+      ${missedRows}
+    </div>`;
+  }
+
   /* ---------- main render ---------- */
   function render() {
     document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === state.view)));
-    $("#searchWrap").hidden = state.view === "stats";
+    const plain = state.view === "stats" || state.view === "savings";
+    $("#searchWrap").hidden = plain;
+    $(".controls").hidden = state.view === "savings";
     $("#sort").hidden = state.view !== "items";
-    $(".check").hidden = state.view === "stats";
+    $(".check").hidden = plain;
 
     const res = $("#results");
     if (!trips.length) {
@@ -538,6 +651,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
       return;
     }
     if (state.view === "stats") { res.innerHTML = renderStats(); return; }
+    if (state.view === "savings") { res.innerHTML = renderSavings(); return; }
 
     const toks = tokens(state.q);
     const rows = state.view === "items" ? itemRows() : tripRows();
