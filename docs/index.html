@@ -346,7 +346,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
   }
   const nameOf = n => names[n] || null;
   const displayName = (n, d) => (nameOf(n) && nameOf(n).name) || d || `Item ${n}`;
-  const isSuggested = n => !!(nameOf(n) && nameOf(n).source !== "mine");
+  const isSuggested = n => !!(nameOf(n) && nameOf(n).source === "suggested");
   const itemText = (n, d) => { const x = nameOf(n); return `${x ? x.name + " " + (x.keywords || "") : ""} ${d || ""} ${n}`; };
 
   const inScope = (date, wh) => (!state.year || date.startsWith(state.year)) && (!state.wh || wh === state.wh);
@@ -389,17 +389,19 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     let html = `<li class="entry"><div class="entryrow"><button class="row" type="button" data-key="${esc(key_)}" aria-expanded="${open}">
       <span class="name">${esc(r.name)}${isSuggested(r.it.n) ? '<span class="sugtag">suggested</span>' : ""}</span>
       <span class="price">${money(r.last.u)}</span>
-      <span class="sub"><span class="itemno">#${esc(r.it.n)}</span> Last bought ${fmtDate(r.last.date)}</span>
-      <span class="meta">${r.count} ${r.count === 1 ? "time" : "times"}</span>
+      <span class="sub"><span class="itemno">#${esc(r.it.n)}</span> ${r.count ? "Last bought" : "Returned"} ${fmtDate(r.last.date)}</span>
+      <span class="meta">${r.count ? `${r.count} ${r.count === 1 ? "time" : "times"}` : "return only"}</span>
     </button><a class="rowlink" target="_blank" rel="noopener" href="${costcoUrl(r.it.n)}" aria-label="Find item ${esc(r.it.n)} on costco.com">costco.com ↗</a></div>`;
     if (open) {
       const paid = r.min === r.max ? money(r.min) : `${money(r.min)} to ${money(r.max)}`;
       const mine = nameOf(r.it.n) && nameOf(r.it.n).source === "mine" ? nameOf(r.it.n).name : "";
       html += `<div class="detail">
         <a class="link" target="_blank" rel="noopener" href="${costcoUrl(r.it.n)}">Find item ${esc(r.it.n)} on costco.com ↗</a>
+        ${r.count ? "" : `<p class="note" style="margin:0 0 1rem">Only a return shows here. The original purchase was probably more than two years ago, before Costco's records begin${state.year || state.wh ? ", or it falls outside the year or location you've filtered to" : ""}.</p>`}
         <dl class="facts">
           <div><dt>Item number</dt><dd class="num">${esc(r.it.n)}</dd></div>
           ${r.name !== r.it.d ? `<div><dt>On the receipt as</dt><dd>${esc(r.it.d)}</dd></div>` : ""}
+          ${nameOf(r.it.n) && nameOf(r.it.n).source === "costco" ? `<div><dt>Name from</dt><dd>costco.com catalog</dd></div>` : ""}
           <div><dt>Price paid</dt><dd class="num">${r.min ? paid : "—"}</dd></div>
           <div><dt>Total spent</dt><dd class="num">${money(r.spent)}</dd></div>
         </dl>
@@ -632,7 +634,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
         await api({ action: "saveNames", names: [{ itemNumber: n, name: "", source: "mine" }] });
         delete names[n];
         if (bk[n]) {
-          await api({ action: "saveNames", names: [{ itemNumber: n, name: bk[n].name, keywords: bk[n].keywords, source: "suggested" }] });
+          await api({ action: "saveNames", names: [{ itemNumber: n, name: bk[n].name, keywords: bk[n].keywords, source: bk[n].source || "suggested" }] });
           names[n] = bk[n]; delete bk[n]; ls.set(BACKUP_STORE, JSON.stringify(bk));
         }
         toast("Your name removed");
@@ -669,12 +671,14 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     const head = (rows.shift() || []).map(h => h.trim());
     const idx = Object.fromEntries(head.map((h, i) => [h, i]));
     const NUM = { quantity: 1, unitPrice: 1, amount: 1, discount: 1, netAmount: 1 };
-    const list = [];
+    const list = [], catalog = {};
     for (const r of rows) {
       if (r.length < 4) continue;
       const o = {};
       for (const c of COLS) { const v = idx[c] != null ? (r[idx[c]] ?? "") : ""; o[c] = NUM[c] ? (parseFloat(v) || 0) : String(v).trim(); }
       if (o.barcode && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) list.push(o);
+      const cn = idx.catalogName != null ? String(r[idx.catalogName] || "").trim() : "";
+      if (cn && o.itemNumber) catalog[o.itemNumber] = cn;
     }
     if (!list.length) { toast("No purchases found in what was pasted."); return; }
 
@@ -695,7 +699,16 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
         const r = await api({ action: "importPurchases", rows: batches[i] });
         added += r.addedTrips; skipped += r.skippedTrips;
       }
-      toast(added ? `Added ${added} new ${added === 1 ? "trip" : "trips"}. ${skipped} were already here.` : `Nothing new: all ${skipped} trips were already here.`);
+      // Official names: send only ones that are new or changed, never over my own.
+      const official = Object.entries(catalog)
+        .filter(([n, name]) => { const x = names[n]; return !x || (x.source !== "mine" && x.name !== name); })
+        .map(([n, name]) => ({ itemNumber: n, name, source: "costco" }));
+      for (let i = 0; i < official.length; i += 250) {
+        toast(`Saving official names… ${Math.min(i + 250, official.length)} of ${official.length}`, true);
+        await api({ action: "saveNames", names: official.slice(i, i + 250) });
+      }
+      const trip = added ? `Added ${added} new ${added === 1 ? "trip" : "trips"}; ${skipped} were already here.` : `No new trips; all ${skipped} were already here.`;
+      toast(official.length ? `${trip} Updated ${official.length} item names from costco.com.` : trip);
       await sync();
     } catch (e) {
       if (e.code === "bad_key") return showGate("That passphrase no longer matches. Enter it again.");
