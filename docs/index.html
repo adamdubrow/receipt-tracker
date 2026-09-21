@@ -270,7 +270,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
   };
 
   let key = ls.get(KEY_STORE);
-  let rawRows = [], names = {};
+  let rawRows = [], names = {}, coupons = [];
   let trips = [], items = new Map(), lineCount = 0;
   let syncedAt = null, usingCache = false, loading = false;
 
@@ -412,6 +412,8 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
           <div><dt>Item number</dt><dd class="num">${esc(r.it.n)}</dd></div>
           ${r.name !== r.it.d ? `<div><dt>On the receipt as</dt><dd>${esc(r.it.d)}</dd></div>` : ""}
           ${nameOf(r.it.n) && nameOf(r.it.n).source === "costco" ? `<div><dt>Name from</dt><dd>costco.com catalog</dd></div>` : ""}
+          ${(() => { const t = todayStr(); const c = coupons.find(x => x.n === r.it.n && x.from <= t && t <= x.to);
+            return c ? `<div><dt>Coupon book</dt><dd>${money(c.off)} off until ${fmtDate(c.to)}${c.channel === "warehouse" ? " (warehouse only)" : c.channel === "online" ? " (online only)" : ""}</dd></div>` : ""; })()}
           <div><dt>Price paid</dt><dd class="num">${r.min ? paid : "—"}</dd></div>
           <div><dt>Total spent</dt><dd class="num">${money(r.spent)}</dd></div>
         </dl>
@@ -582,6 +584,34 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
         (stillOpen ? owed : missed).push(rec);
       }
     }
+    // Coupon book: anything bought in the last 30 days that is now in an
+    // active book, less any instant savings already received on it.
+    const todayS = todayStr();
+    const active = new Map();
+    for (const c of coupons) if (c.from <= todayS && todayS <= c.to) {
+      if (!active.has(c.n)) active.set(c.n, []);
+      active.get(c.n).push(c);
+    }
+    for (const [n, offers] of active) {
+      const it = items.get(n);
+      if (!it) continue;
+      for (const p of it.buys) {
+        if (p.ret || !(p.q > 0) || !(p.net > 0)) continue;
+        const age = today - dayNum(p.date);
+        if (age < 0 || age > WINDOW) continue;
+        const online = p.wh === "ONLINE";
+        for (const c of offers) {
+          if ((c.channel === "warehouse" && online) || (c.channel === "online" && !online)) continue;
+          if (p.date > c.to) continue;
+          const amount = +(c.off * p.q - (p.disc || 0)).toFixed(2);
+          if (amount < 0.5) continue;
+          const deadline = [addDays(p.date, WINDOW), c.to].sort()[0];
+          const rec = { it, p, c, amount, deadline, daysLeft: dayNum(deadline) - today, sameStore: true, coupon: true };
+          const dup = owed.findIndex(o => o.p === p);
+          if (dup < 0) owed.push(rec); else if (owed[dup].amount < amount) owed[dup] = rec;
+        }
+      }
+    }
     open.sort((a, b) => a.daysLeft - b.daysLeft || a.p.date.localeCompare(b.p.date));
     owed.sort((a, b) => a.daysLeft - b.daysLeft);
     missed.sort((a, b) => b.p.date.localeCompare(a.p.date));
@@ -606,7 +636,9 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     const owedCard = o => `<div class="owed${o.sameStore ? "" : " maybe"}">
         <span class="amt">${money(o.amount)}</span>
         <button class="goto" type="button" data-goto="${esc(o.it.n)}" style="font-weight:700">${esc(displayName(o.it.n, o.it.d))}</button>
-        <div class="sub">Paid ${per(o.pc)} ${where(o.p.wh)} on ${fmtDate(o.p.date)}. You paid ${per(o.lc)} ${where(o.l.wh)} on ${fmtDate(o.l.date)}.</div>
+        <div class="sub">${o.coupon
+          ? `Bought ${o.p.q} ${where(o.p.wh)} on ${fmtDate(o.p.date)}${o.p.disc > 0 ? ` with ${money(o.p.disc)} already off` : " at full price"}. Now in the coupon book: ${money(o.c.off)} off each, ${fmtDate(o.c.from)} to ${fmtDate(o.c.to)}.`
+          : `Paid ${per(o.pc)} ${where(o.p.wh)} on ${fmtDate(o.p.date)}. You paid ${per(o.lc)} ${where(o.l.wh)} on ${fmtDate(o.l.date)}.`}</div>
         <div class="how">${o.sameStore ? "" : "<b>Lower at a different warehouse</b>, and prices can vary by location, so this one is worth asking about rather than certain. "}Claim by ${fmtDate(o.deadline)}, ${days(o.daysLeft)}. ${howTo(o.p.wh)}</div>
       </div>`;
 
@@ -623,11 +655,11 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
       : `<p class="count">None in the last 90 days.</p>`;
 
     return `<div class="stat">
-      <p class="hint" style="margin-top:.4rem">Costco refunds the difference when its own price drops within 30 days of your purchase. Warehouse and online prices are separate, so each is only compared with itself. These checks use real prices from your own receipts, after instant savings.</p>
+      <p class="hint" style="margin-top:.4rem">Costco refunds the difference when its own price drops within 30 days of your purchase. Warehouse and online prices are separate, so each is only compared with itself. These checks use real prices from your own receipts and this month's coupon book, never online prices.</p>
       <h2>Likely owed</h2>
-      ${owed.length ? owed.map(owedCard).join("") : `<p class="count">Nothing yet. This fills in when a later trip shows a lower price on something still inside its 30 days.</p>`}
+      ${owed.length ? owed.map(owedCard).join("") : `<p class="count">Nothing right now. This fills in when the coupon book or a later trip shows a lower price on something still inside its 30 days.</p>`}
       <h2>Still in the window</h2>
-      <p class="hint">Everything bought in the last 30 days, soonest deadline first. If a shelf tag shows less than what's here, you're owed the difference.</p>
+      <p class="hint">Everything bought in the last 30 days, soonest deadline first. If a shelf tag shows less than what's here, you're owed the difference.${coupons.length ? "" : " Import once to load this month's coupon book."}</p>
       ${openRows}
       <h2>Recently missed</h2>
       <p class="hint">Drops found after the 30 days had passed, over the last 90 days. No longer claimable, but it shows what to watch for.</p>
@@ -675,7 +707,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
 
   /* ---------- load / sync ---------- */
   function saveCache() {
-    ls.set(CACHE_STORE, JSON.stringify({ rows: rawRows, names, at: Date.now() }));
+    ls.set(CACHE_STORE, JSON.stringify({ rows: rawRows, names, coupons, at: Date.now() }));
   }
 
   async function sync() {
@@ -684,6 +716,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     try {
       const j = await api({ action: "getPurchases" });
       usingCache = false; syncedAt = Date.now();
+      coupons = Array.isArray(j.coupons) ? j.coupons : [];
       ingest(j.rows, j.names);
       saveCache();
     } catch (e) {
@@ -699,7 +732,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     $("#gate").hidden = true; $("#app").hidden = false; $("#topActions").hidden = false;
     const cached = ls.get(CACHE_STORE);
     if (cached) {
-      try { const c = JSON.parse(cached); ingest(c.rows, c.names); usingCache = true; } catch {}
+      try { const c = JSON.parse(cached); coupons = c.coupons || []; ingest(c.rows, c.names); usingCache = true; } catch {}
     }
     render();
     sync();
@@ -781,7 +814,19 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
   let importing = false;
   async function importText(text) {
     if (importing) return;
-    const rows = parseCSV(String(text).replace(/^\uFEFF/, "").trim());
+    let body = String(text).replace(/^\uFEFF/, "").trim(), book = null;
+    const cut = body.search(/\n#COUPONS,/);
+    if (cut >= 0) {
+      const part = body.slice(cut + 1); body = body.slice(0, cut);
+      const lines = parseCSV(part);
+      const head = lines.shift() || [];
+      lines.shift();                                   // itemNumber,off,channel,name
+      const list = lines.filter(r => r.length >= 3 && /^\d{3,}$/.test(r[0]) && parseFloat(r[1]) > 0)
+        .map(r => ({ n: r[0], off: parseFloat(r[1]), channel: r[2], name: r[3] || "" }));
+      if (/^\d{4}-\d{2}-\d{2}$/.test(head[1] || "") && /^\d{4}-\d{2}-\d{2}$/.test(head[2] || "") && list.length)
+        book = { from: head[1], to: head[2], list };
+    }
+    const rows = parseCSV(body);
     const head = (rows.shift() || []).map(h => h.trim());
     const idx = Object.fromEntries(head.map((h, i) => [h, i]));
     const NUM = { quantity: 1, unitPrice: 1, amount: 1, discount: 1, netAmount: 1 };
@@ -821,8 +866,13 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
         toast(`Saving official names… ${Math.min(i + 250, official.length)} of ${official.length}`, true);
         await api({ action: "saveNames", names: official.slice(i, i + 250) });
       }
+      if (book) {
+        toast("Saving this month's coupon book…", true);
+        await api({ action: "saveCoupons", from: book.from, to: book.to, list: book.list });
+      }
       const trip = added ? `Added ${added} new ${added === 1 ? "trip" : "trips"}; ${skipped} were already here.` : `No new trips; all ${skipped} were already here.`;
-      toast(official.length ? `${trip} Updated ${official.length} item names from costco.com.` : trip);
+      const extras = [official.length ? `updated ${official.length} item names` : "", book ? `saved ${book.list.length} coupon offers` : ""].filter(Boolean).join(" and ");
+      toast(extras ? `${trip} Also ${extras}.` : trip);
       await sync();
     } catch (e) {
       if (e.code === "bad_key") return showGate("That passphrase no longer matches. Enter it again.");
@@ -890,7 +940,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
   $("#forgetBtn").addEventListener("click", () => {
     $("#menu").open = false;
     ls.del(CACHE_STORE); ls.del(BACKUP_STORE);
-    trips = []; items = new Map(); rawRows = []; names = {};
+    trips = []; items = new Map(); rawRows = []; names = {}; coupons = [];
     showGate("This device no longer has your passphrase or saved copy.");
   });
   document.addEventListener("click", e => { if (!e.target.closest("#menu")) $("#menu").open = false; });
