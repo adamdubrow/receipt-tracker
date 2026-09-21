@@ -636,6 +636,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
     const owedCard = o => `<div class="owed${o.sameStore ? "" : " maybe"}">
         <span class="amt">${money(o.amount)}</span>
         <button class="goto" type="button" data-goto="${esc(o.it.n)}" style="font-weight:700">${esc(displayName(o.it.n, o.it.d))}</button>
+        <div class="sub"><span class="itemno">Item #${esc(o.it.n)}</span></div>
         <div class="sub">${o.coupon
           ? `Bought ${o.p.q} ${where(o.p.wh)} on ${fmtDate(o.p.date)}${o.p.disc > 0 ? ` with ${money(o.p.disc)} already off` : " at full price"}. Now in the coupon book: ${money(o.c.off)} off each, ${fmtDate(o.c.from)} to ${fmtDate(o.c.to)}.`
           : `Paid ${per(o.pc)} ${where(o.p.wh)} on ${fmtDate(o.p.date)}. You paid ${per(o.lc)} ${where(o.l.wh)} on ${fmtDate(o.l.date)}.`}</div>
@@ -650,7 +651,7 @@ select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid 
 
     const missedRows = missed.length ? `<table class="tbl"><tbody>${missed.slice(0, 15).map(o => `<tr>
         <td><button class="goto" type="button" data-goto="${esc(o.it.n)}">${esc(displayName(o.it.n, o.it.d))}</button>
-          <div class="sub">${per(o.pc)} on ${fmtDate(o.p.date)}, then ${per(o.lc)} on ${fmtDate(o.l.date)}${o.sameStore ? "" : " (different warehouse)"}</div></td>
+          <div class="sub"><span class="itemno">#${esc(o.it.n)}</span> ${per(o.pc)} on ${fmtDate(o.p.date)}, then ${per(o.lc)} on ${fmtDate(o.l.date)}${o.sameStore ? "" : " (different warehouse)"}</div></td>
         <td class="r">${money(o.amount)}</td></tr>`).join("")}</tbody></table>`
       : `<p class="count">None in the last 90 days.</p>`;
 
