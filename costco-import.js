@@ -373,6 +373,42 @@ var __devtoolsCopy = (typeof copy === "function") ? copy : null;
   }
   for (const r of rows) r.catalogName = catalogNames[r.itemNumber] || "";
 
+  /* ---------- 4d. This month's coupon book (in-warehouse savings) ---------- */
+
+  let coupons = null;
+  try {
+    const res = await fetch("/o/-/warehouse-savings", { credentials: "include" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+    const txt = el => (el.textContent || "").replace(/\s+/g, " ").trim();
+    const valid = txt(doc.body).match(/Valid\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s*-\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+    if (!valid) throw new Error("no dates on the page");
+    const iso = s => { const [m, d, y] = s.split("/"); return `${y.length === 2 ? "20" + y : y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`; };
+
+    const countItems = s => (s.match(/Item\s+\d{3,}/g) || []).length;
+    const leaves = [...doc.body.querySelectorAll("*")].filter(el => el.children.length === 0 && /^Item\s+\d{3,}/.test(txt(el)));
+    const list = [], seen = new Set();
+    for (const leaf of leaves) {
+      let tile = leaf;
+      while (tile.parentElement && countItems(txt(tile.parentElement)) <= 1) tile = tile.parentElement;
+      if (seen.has(tile)) continue;
+      seen.add(tile);
+      const t = txt(tile);
+      const nums = ((t.match(/Item\s+([\d,\s]+)/) || [])[1] || "").split(/[,\s]+/).filter(n => /^\d{3,}$/.test(n));
+      let off = null, m;
+      if ((m = t.match(/After\s*\$\s*([\d,]+(?:\.\d{1,2})?)\s*OFF/i))) off = parseFloat(m[1].replace(/,/g, ""));
+      else if ((m = t.match(/Save\s*\$\s*([\d,]+(?:\.\d{1,2})?)(?!\s*-)/i))) off = parseFloat(m[1].replace(/,/g, ""));
+      const channel = /Warehouse Only/i.test(t) ? "warehouse" : /Online Only/i.test(t) ? "online" : /Warehouse\s*&\s*Online/i.test(t) ? "both" : "";
+      if (!nums.length || !off || !channel) continue;
+      const name = t.split(/Warehouse Only|Online Only|Warehouse\s*&\s*Online/i)[0].slice(0, 90).trim();
+      for (const n of nums) list.push({ n, off, channel, name });
+    }
+    coupons = { from: iso(valid[1]), to: iso(valid[2]), list };
+    log(`Coupon book ${coupons.from} to ${coupons.to}: ${list.length} offers.`);
+  } catch (e) {
+    log(`Coupon book skipped (${e.message}). Purchases are unaffected.`);
+  }
+
   /* ---------- 5. Emit CSV ---------- */
 
   const COLS = ["date", "warehouse", "barcode", "itemNumber", "description",
@@ -391,18 +427,23 @@ var __devtoolsCopy = (typeof copy === "function") ? copy : null;
     .join("\n");
 
   window.costcoRows = rows;   // also left in memory for inspection
-  window.costcoCSV = csv;
+  // The coupon book rides along after the purchases, under its own header.
+  const payload = csv + (coupons && coupons.list.length
+    ? `\n#COUPONS,${coupons.from},${coupons.to}\nitemNumber,off,channel,name\n` +
+      coupons.list.map(c => [c.n, c.off, c.channel, esc(c.name)].join(",")).join("\n")
+    : "");
+  window.costcoCSV = payload;
   const summary = `${rows.length} line items: ${barcodes.size} warehouse receipts + ${onlineOrders} online orders.`;
 
   let copied = false;
-  if (__devtoolsCopy) { try { __devtoolsCopy(csv); copied = true; } catch { copied = false; } }
+  if (__devtoolsCopy) { try { __devtoolsCopy(payload); copied = true; } catch { copied = false; } }
 
   if (copied) {
     log(`Done. ${summary}`);
     log("COPIED TO CLIPBOARD. Now open Receipt Tracker, choose Paste import, paste, and choose Import.");
     log("If the clipboard gets overwritten before you paste, type  copy(costcoCSV)  here to copy again.");
   } else {
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob([payload], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `costco-purchases-${new Date().toISOString().slice(0, 10)}.csv`;

@@ -13,13 +13,13 @@ My Costco purchase history, from every warehouse receipt and costco.com order, s
 | **The app** | `docs/index.html` in this repo | The page at the address above. Reads everything from my Google Sheet. |
 | **Old app** | `docs/legacy.html` in this repo | The earlier version with the receipt scanner. Reachable from the app's **More** menu. |
 | **Import script** | `costco-import.js` in this repo | Collects my Costco receipts and online orders. Runs on costco.com. |
-| **My data** | Google Sheet, tabs **Purchases** and **Names** | One row per item bought, plus item names. The single copy all devices read. |
+| **My data** | Google Sheet, tabs **Purchases**, **Names**, **Coupons** | One row per item bought, item names, and recent coupon books. The single copy all devices read. |
 | **Backend** | Apps Script project (`Code.gs`), at script.google.com | Connects the app to the Sheet. Guarded by my passphrase. |
 | **Passphrase** | Apps Script: **Project Settings → Script Properties → `PASSPHRASE`** | Never stored in this repo. The repo is public. |
 
 ---
 
-## Routine: import new purchases (every few months)
+## Routine: import new purchases (once a month)
 
 At a **computer**, in **Chrome**. Takes about 5 minutes.
 
@@ -30,9 +30,11 @@ At a **computer**, in **Chrome**. Takes about 5 minutes.
 5. Press **Enter** and wait about 3 minutes, until it says **COPIED TO CLIPBOARD**.
 6. **Don't copy anything else.** Open the app, tap **Paste import**, paste, and tap **Import**.
 
-It reports how many new trips were added and how many item names were updated from Costco's catalog. Trips already in the Sheet are skipped, so running it again, or with overlapping dates, never creates duplicates.
+It reports how many new trips were added, how many item names were updated from Costco's catalog, and how many coupon offers were saved. Trips already in the Sheet are skipped, so running it again, or with overlapping dates, never creates duplicates.
 
-**Why not more often or automatically?** Costco keeps two years of receipts, and every run collects all of them, so waiting never loses anything. It can't run on its own: it needs my signed-in Costco session, and Costco's site blocks sending data straight to Google, which is why it goes through the clipboard.
+**When:** once per coupon book, in its first few days. A new book starts about every four weeks, and Costco's price adjustment window is 30 days, so one import early in each book catches every coupon match on recent purchases. (For history alone, every few months would do: Costco keeps two years of receipts, and every run collects all of them.)
+
+**Why not automatically?** It can't run on its own: it needs my signed-in Costco session, and Costco's site blocks sending data straight to Google, which is why it goes through the clipboard.
 
 ---
 
@@ -98,9 +100,9 @@ The same method works for `costco-import.js`, uploaded to the top of the repo in
   3. **Suggested**: generated from receipt abbreviations, labelled "suggested," and possibly wrong. Only used where the catalog has nothing.
 - **Online orders** leave out delivery fees and cancelled items. Order-level discounts aren't spread across lines.
 - **Savings tab: price adjustments.** Costco refunds the difference if its price drops within **30 days** of purchase (warehouse against warehouse, online against online). The tab shows:
-  - **Likely owed:** something still inside its 30 days that a later trip shows at a lower price, with the amount and the deadline. A number badge on the tab counts these.
+  - **Likely owed:** something still inside its 30 days that's now in the coupon book, or that a later trip shows at a lower price, with the amount and the deadline. A number badge on the tab counts these. Coupon matches subtract any instant savings already received.
   - **Still in the window:** everything bought in the last 30 days, soonest deadline first, for checking against shelf tags.
   - **Recently missed:** drops found after the window closed (last 90 days).
   - To claim a warehouse purchase: Member Services at the same warehouse, with the item number. Online orders: the Price Adjustment form on costco.com.
-  - It only knows prices from my own receipts, so it catches drops on things I buy again. Importing more often makes it more useful.
+  - It uses only in-warehouse evidence: my own receipts and Costco's coupon book (dollars off, the same at every U.S. warehouse). It never compares against online prices, which often run higher. Drops outside the coupon book, like markdowns or clearance, still show up only if I buy the item again or spot a lower shelf tag.
 - **Stats → Price changes** compares the first and latest price paid for anything bought at least three times.
