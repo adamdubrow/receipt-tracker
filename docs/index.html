@@ -1,380 +1,789 @@
-Receipt Tracker
-274 trips and 1,719 items, July 2024 to September 2026. Up to date.
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Receipt Tracker</title>
+<meta name="theme-color" content="#1B2130">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Receipts">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href='data:application/json,{"name":"Receipt Tracker","short_name":"Receipts","start_url":"https://adamdubrow.github.io/receipt-tracker/","display":"standalone","background_color":"%23EEF0EB","theme_color":"%231B2130"}'>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF0EB; --paper-2:#FFFFFF; --ink:#1B2130; --muted:#5F6673; --rule:#C6CBC2;
+  --hl:#FFE45C; --hl-ink:#1B2130; --neg:#B3261E; --pos:#1F7A44; --focus:#2F5BD3;
+  --sans:"Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#13161B; --paper-2:#1D2129; --ink:#E6E8EB; --muted:#9BA2AE; --rule:#363C47;
+    --hl:#E3C22E; --hl-ink:#13161B; --neg:#FF8A80; --pos:#7FD6A0; --focus:#8AB0FF; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#13161B; --paper-2:#1D2129; --ink:#E6E8EB; --muted:#9BA2AE; --rule:#363C47;
+  --hl:#E3C22E; --hl-ink:#13161B; --neg:#FF8A80; --pos:#7FD6A0; --focus:#8AB0FF; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+.wrap{max-width:50rem;margin:0 auto;padding:0 1.1rem 3rem}
+[hidden]{display:none !important}
 
-Paste import
-More
-Items
-Trips
-Stats
-Search purchases
-Search, e.g. paper towels
-Year
-All years
-Location
-All locations
-Sort
-Recently bought
-Hide returns
-799 items, showing 60
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;padding:1.4rem 0 .8rem;flex-wrap:wrap}
+h1{font-size:clamp(1.7rem,5vw,2.4rem);font-weight:800;letter-spacing:-.025em;margin:0;line-height:1.05}
+.summary{margin:.4rem 0 0;color:var(--muted);font-size:.9rem;max-width:36rem}
+.btn{font:inherit;font-weight:700;font-size:.92rem;background:var(--ink);color:var(--paper);border:0;border-radius:6px;padding:.55rem .95rem;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.btn:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
+.menu{position:relative}
+.menu summary{list-style:none;cursor:pointer}
+.menu summary::-webkit-details-marker{display:none}
+.menu .panel{position:absolute;right:0;top:calc(100% + .4rem);background:var(--paper-2);border:1px solid var(--rule);border-radius:8px;padding:.35rem;min-width:15rem;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.menu .panel button,.menu .panel a{display:block;width:100%;text-align:left;font:inherit;font-size:.92rem;color:var(--ink);background:none;border:0;border-radius:6px;padding:.55rem .7rem;cursor:pointer;text-decoration:none}
+.menu .panel button:hover,.menu .panel a:hover{background:var(--paper)}
 
-BFG ADVANTAGE CONTROL 245/50R20 102V BSW ALL-SEASON TIRE
-$208.99
-#1523585 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--ink);margin:.2rem 0 .6rem}
+.tabs button{font:inherit;font-weight:700;font-size:1rem;background:none;border:0;color:var(--muted);padding:.5rem .9rem .45rem;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
 
-Gerry Polo Shirtsuggested
-$4.97
-#1970825 Last bought Sep 19, 2026
-0 times
-costco.com ↗
+.sticky{position:sticky;top:env(safe-area-inset-top,0px);background:var(--paper);z-index:5;padding:.2rem 0 .7rem}
+#q{width:100%;font:inherit;font-size:1.3rem;font-weight:500;padding:.5rem 0;border:0;border-bottom:2px solid var(--ink);background:transparent;color:var(--ink);border-radius:0;-webkit-appearance:none;appearance:none}
+#q::placeholder{color:var(--muted);font-weight:400}
+#q:focus-visible{outline:none;border-bottom-color:var(--focus)}
+.controls{display:flex;flex-wrap:wrap;gap:.55rem 1rem;align-items:center;margin-top:.75rem;font-size:.9rem}
+select{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid var(--rule);border-radius:6px;padding:.32rem .5rem}
+.check{display:inline-flex;gap:.4rem;align-items:center;cursor:pointer;white-space:nowrap}
+.check input{accent-color:var(--ink);width:1rem;height:1rem}
 
-Don Miguel Mini Tacossuggested
-$12.99
-#1048300 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+.note{background:var(--paper-2);border-left:3px solid var(--ink);padding:.7rem .9rem;margin:.5rem 0 1rem;font-size:.92rem}
+.note.warn{border-left-color:var(--neg)}
+.count{color:var(--muted);font-size:.86rem;margin:.3rem 0 .4rem}
+.list{list-style:none;margin:0;padding:0}
+.entry{border-top:1px dashed var(--rule)}
+.entry:last-child{border-bottom:1px dashed var(--rule)}
+.entryrow{display:flex;align-items:center;gap:.9rem}
+.entryrow .row{flex:1;min-width:0}
+.row{font:inherit;color:inherit;background:none;border:0;text-align:left;display:grid;grid-template-columns:1fr auto;gap:.1rem 1rem;width:100%;padding:.85rem 0;cursor:pointer}
+.name{font-weight:700;font-size:1.03rem;line-height:1.25;overflow-wrap:anywhere}
+.sub{color:var(--muted);font-size:.86rem}
+.price{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500;text-align:right;align-self:start}
+.meta{color:var(--muted);font-size:.86rem;text-align:right}
+.row[aria-expanded="true"] .name{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.rowlink{flex:none;font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;white-space:nowrap;padding:.5rem 0 .5rem .7rem;border-left:1px dashed var(--rule)}
+.rowlink:hover,.rowlink:focus-visible{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.itemno{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.8rem;margin-right:.45rem}
+.sugtag{display:inline-block;font-size:.68rem;font-weight:500;color:var(--muted);border:1px solid var(--rule);border-radius:4px;padding:0 .3rem;margin-left:.4rem;vertical-align:.08em}
 
-Halloween Dog Toysuggested
-$9.99
-#1752192 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+.detail{padding:0 0 1.1rem}
+.detail .link{display:inline-block;margin:0 0 .9rem;font-size:.92rem;font-weight:500;color:var(--ink);text-underline-offset:3px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:.7rem 1.2rem;margin:0 0 1rem}
+.facts dt{color:var(--muted);font-size:.78rem}
+.facts dd{margin:.1rem 0 0;font-size:.95rem;overflow-wrap:anywhere}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
-Bartlett Pears 4 lb Boxsuggested
-$6.89
-#5063 Last bought Sep 19, 2026
-2 times
-costco.com ↗
+/* The receipt tape: torn edges top and bottom. */
+.tape{
+  max-width:31rem;background:var(--paper-2);font-family:var(--mono);font-size:.84rem;
+  font-variant-numeric:tabular-nums;padding:1.35rem 1.15rem;margin:0 0 1rem;
+  -webkit-mask:
+    conic-gradient(from 135deg at top,#0000,#000 1deg 89deg,#0000 90deg) top/14px 51% repeat-x,
+    conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/14px 51% repeat-x;
+          mask:
+    conic-gradient(from 135deg at top,#0000,#000 1deg 89deg,#0000 90deg) top/14px 51% repeat-x,
+    conic-gradient(from -45deg at bottom,#0000,#000 1deg 89deg,#0000 90deg) bottom/14px 51% repeat-x;
+}
+.tl{display:grid;gap:0 .9rem;padding:.2rem .3rem;align-items:baseline}
+.tl4{grid-template-columns:1fr auto auto auto}
+.tl3{grid-template-columns:1fr auto auto}
+.tl > span:not(:first-child){text-align:right}
+.th{color:var(--muted);border-bottom:1px dashed var(--rule);margin-bottom:.3rem;padding-bottom:.35rem}
+.tf{border-top:1px dashed var(--rule);margin-top:.35rem;padding-top:.45rem;font-weight:500}
+.tl .small{display:block;color:var(--muted);font-size:.76rem}
+.tl a.tlink{display:block;color:var(--muted);font-size:.76rem;text-decoration:none;width:max-content}
+.tl a.tlink:hover,.tl a.tlink:focus-visible{text-decoration:underline;color:var(--ink)}
+.tl.hit{background:var(--hl);color:var(--hl-ink)}
+.tl.hit .small,.tl.hit a.tlink{color:var(--hl-ink);opacity:.75}
+.neg{color:var(--neg)}
+.pos{color:var(--pos)}
+.tl.hit .neg{color:var(--hl-ink)}
 
-Avocados (6 Count)suggested
-$5.99
-#647465 Last bought Sep 19, 2026
-4 times
-costco.com ↗
+.rename{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end;max-width:31rem}
+.rename label{flex:1 1 14rem;display:flex;flex-direction:column;gap:.25rem;font-size:.82rem;color:var(--muted)}
+.rename input,.field{font:inherit;font-size:1rem;color:var(--ink);background:var(--paper-2);border:1px solid var(--rule);border-radius:6px;padding:.5rem .65rem}
 
-Sweet Corn 8 Packsuggested
-$5.99
-#38742 Last bought Sep 19, 2026
-4 times
-costco.com ↗
+.panelbox{background:var(--paper-2);border-left:3px solid var(--ink);padding:.9rem 1rem;margin:.5rem 0 1rem}
+.panelbox p{margin:0 0 .7rem;font-size:.93rem}
+.pastebox{width:100%;min-height:8rem;font-family:var(--mono);font-size:.78rem;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:.5rem;margin:0 0 .7rem;resize:vertical}
+.row2{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
 
-D32 Reservesuggested
-$18.99
-#2034213 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+/* Stats */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.6rem;margin:.4rem 0 1.4rem}
+.kpi{background:var(--paper-2);border-radius:8px;padding:.75rem .85rem}
+.kpi .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:1.25rem;font-weight:500}
+.kpi .l{color:var(--muted);font-size:.8rem}
+.stat h2{font-size:1.1rem;margin:1.4rem 0 .5rem;letter-spacing:-.01em}
+.stat .hint{color:var(--muted);font-size:.85rem;margin:-.2rem 0 .6rem}
+.bars{display:grid;grid-template-columns:auto 1fr auto;gap:.3rem .7rem;align-items:center;font-size:.88rem}
+.bars .lab{color:var(--muted);white-space:nowrap}
+.bars .bar{height:.8rem;background:var(--ink);border-radius:2px;min-width:2px}
+.bars .amt{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.tbl{width:100%;border-collapse:collapse;font-size:.9rem}
+.tbl td{padding:.45rem .3rem;border-top:1px dashed var(--rule);vertical-align:top}
+.tbl td.r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl button.goto{font:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:3px}
 
-Catalina Utility Pant FY26suggested
-$4.97
-#1752054 Last bought Sep 19, 2026
-2 times
-costco.com ↗
+.gate{max-width:28rem;padding:3rem 0 1rem}
+.gate h2{font-size:1.4rem;margin:0 0 .5rem}
+.gate p{color:var(--muted);margin:.4rem 0 1rem}
+.gate .row2 .field{flex:1 1 12rem}
+.err{color:var(--neg);font-size:.9rem;margin:.6rem 0 0;min-height:1.2em}
 
-Raspberries 12 ozsuggested
-$4.49
-#56366 Last bought Sep 19, 2026
-6 times
-costco.com ↗
+.empty{padding:2rem 0 1rem;max-width:34rem}
+.empty h2{font-size:1.3rem;margin:0 0 .5rem}
+.empty p{margin:.5rem 0;color:var(--muted)}
+.more{margin:1rem 0 0}
 
-Organic Raspberries 12 ozsuggested
-$4.49
-#251680 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+#status{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1rem + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--paper);padding:.6rem 1rem;border-radius:6px;font-size:.92rem;max-width:calc(100% - 2rem);z-index:50;display:none}
+#status.show{display:block}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-Scott Bath Tissue (1100 Sheets)suggested
-$26.79
-#912796 Last bought Sep 19, 2026
-8 times
-costco.com ↗
+@media (max-width:520px){
+  .controls{gap:.5rem .8rem}
+  .tape{padding:1.3rem .8rem}
+  .tl{gap:0 .6rem}
+  .rowlink{font-size:.74rem;padding-left:.5rem}
+  .entryrow{gap:.5rem}
+  .tabs button{padding:.5rem .7rem .45rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Receipt Tracker</h1>
+      <p class="summary" id="summary">Loading…</p>
+    </div>
+    <div class="actions" id="topActions" hidden>
+      <button class="btn" id="pasteBtn" type="button">Paste import</button>
+      <details class="menu" id="menu">
+        <summary class="btn ghost" aria-label="More options">More</summary>
+        <div class="panel">
+          <button type="button" id="refreshBtn">Refresh from Sheet</button>
+          <a href="legacy.html">Old version with scanner</a>
+          <button type="button" id="forgetBtn">Forget passphrase on this device</button>
+        </div>
+      </details>
+    </div>
+  </header>
 
-Foster Farms Chipotle Wingssuggested
-$17.99
-#1339035 Last bought Sep 19, 2026
-3 times
-costco.com ↗
+  <section id="gate" class="gate" hidden>
+    <h2>Connect this device</h2>
+    <p>Enter your Receipt Tracker passphrase. It's saved on this device only, so you'll do this once per phone or computer.</p>
+    <form id="gateForm" class="row2">
+      <label class="sr" for="gateKey">Passphrase</label>
+      <input class="field" id="gateKey" type="password" autocomplete="current-password" placeholder="Passphrase" required>
+      <button class="btn" type="submit" id="gateGo">Connect</button>
+    </form>
+    <p class="err" id="gateErr" role="alert"></p>
+  </section>
 
-Nylabone Beef Chew 2.6 lbssuggested
-$19.99
-#1850603 Last bought Sep 19, 2026
-9 times
-costco.com ↗
+  <div id="app" hidden>
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button type="button" role="tab" data-view="items" aria-selected="true">Items</button>
+      <button type="button" role="tab" data-view="trips" aria-selected="false">Trips</button>
+      <button type="button" role="tab" data-view="stats" aria-selected="false">Stats</button>
+    </div>
 
-Fajita Kitsuggested
-$6.99
-#16327 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+    <div class="sticky">
+      <div id="searchWrap">
+        <label for="q" class="sr">Search purchases</label>
+        <input id="q" type="search" placeholder="Search, e.g. paper towels" autocomplete="off" enterkeyhint="search">
+      </div>
+      <div class="controls">
+        <label class="sr" for="year">Year</label>
+        <select id="year"><option value="">All years</option></select>
+        <label class="sr" for="wh">Location</label>
+        <select id="wh"><option value="">All locations</option></select>
+        <label class="sr" for="sort">Sort</label>
+        <select id="sort">
+          <option value="recent">Recently bought</option>
+          <option value="count">Most often</option>
+          <option value="spent">Most spent</option>
+          <option value="name">A to Z</option>
+        </select>
+        <label class="check"><input type="checkbox" id="hideReturns"> Hide returns</label>
+      </div>
+    </div>
 
-Kirkland Signature Paper Towelssuggested
-$20.79
-#512599 Last bought Sep 19, 2026
-10 times
-costco.com ↗
+    <div id="notice"></div>
+    <div id="results" aria-live="polite"></div>
+  </div>
+</div>
+<div id="status" role="status"></div>
 
-Kirkland Signature Men's Hoodiesuggested
-$15.99
-#1754019 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+<script>
+(() => {
+  const TRACKER_URL = "https://script.google.com/macros/s/AKfycbxkRk8y9YkxOhp1Ty7wfKl0fsOBZhetrwWLrFERJBUJbExZI_qsgjeyOEa6BWiAB9Eqlg/exec";
+  const KEY_STORE = "rt-key", CACHE_STORE = "rt-cache", BACKUP_STORE = "rt-sug-backup";
+  const COLS = ["date", "warehouse", "barcode", "itemNumber", "description", "department",
+                "taxable", "quantity", "unitPrice", "amount", "discount", "netAmount", "isReturn"];
 
-Green Grapes 3 lbsuggested
-$6.89
-#47825 Last bought Sep 19, 2026
-2 times
-costco.com ↗
+  const $ = s => document.querySelector(s);
+  const moneyFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  const money = n => moneyFmt.format(Number(n) || 0);
+  const money0 = n => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Number(n) || 0);
+  const fmtDate = d => new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const fmtMonth = d => new Date(d + "T00:00:00Z").toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  const fmtMonShort = ym => new Date(ym + "-01T00:00:00Z").toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const titleCase = s => String(s || "").toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+  const costcoUrl = n => `https://www.costco.com/s?keyword=${encodeURIComponent(n)}`;
+  const ls = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch {} }
+  };
 
-Kirkland Signature Buffalo Wingssuggested
-$14.99
-#1956136 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+  let key = ls.get(KEY_STORE);
+  let rawRows = [], names = {};
+  let trips = [], items = new Map(), lineCount = 0;
+  let syncedAt = null, usingCache = false, loading = false;
 
-CC Short Sleeve Woven Shirtsuggested
-$9.97
-#1970822 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+  const state = { view: "items", q: "", year: "", wh: "", sort: "recent", hideReturns: false, limit: 60, open: new Set() };
 
-Kirkland Signature Dog Food 18.1kgsuggested
-$28.99
-#430541 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+  /* ---------- backend ---------- */
+  async function api(body) {
+    const res = await fetch(TRACKER_URL, { method: "POST", body: JSON.stringify(Object.assign({ key }, body)) });
+    const j = await res.json();
+    if (!j || !j.success) {
+      const e = new Error((j && (j.message || j.error)) || "No response");
+      e.code = j && j.error;
+      throw e;
+    }
+    return j;
+  }
 
-Blueberries 18 ozsuggested
-$6.99
-#57554 Last bought Sep 19, 2026
-16 times
-costco.com ↗
+  /* ---------- data model ---------- */
+  function ingest(rows, nm) {
+    rawRows = rows || []; names = nm || {};
+    trips = []; items = new Map(); lineCount = 0;
+    const byTrip = new Map();
+    for (const r of rawRows) {
+      const o = {};
+      COLS.forEach((c, i) => o[c] = r[i]);
+      const date = String(o.date || "").slice(0, 10);
+      const bc = String(o.barcode || "");
+      if (!bc || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      const line = {
+        n: String(o.itemNumber || "").trim(), d: String(o.description || "").trim(),
+        q: Number(o.quantity) || 0, u: Number(o.unitPrice) || 0, a: Number(o.amount) || 0,
+        disc: Number(o.discount) || 0, net: Number(o.netAmount) || 0, ret: o.isReturn === "Y"
+      };
+      let t = byTrip.get(bc);
+      if (!t) { t = { bc, date, wh: String(o.warehouse || ""), ret: false, lines: [], total: 0 }; byTrip.set(bc, t); }
+      t.lines.push(line); t.total += line.net; if (line.ret) t.ret = true;
+      lineCount++;
+    }
+    trips = [...byTrip.values()].sort((a, b) => b.date.localeCompare(a.date) || b.bc.localeCompare(a.bc));
+    for (const t of trips) {
+      for (const l of t.lines) {
+        if (!l.n) continue;
+        let it = items.get(l.n);
+        if (!it) { it = { n: l.n, d: l.d, buys: [], newest: "" }; items.set(l.n, it); }
+        if (t.date > it.newest) { it.newest = t.date; it.d = l.d; }
+        it.buys.push({ date: t.date, wh: t.wh, q: l.q, u: l.u, net: l.net, disc: l.disc, ret: l.ret || l.q < 0, bc: t.bc });
+      }
+    }
+    for (const it of items.values()) it.buys.sort((a, b) => b.date.localeCompare(a.date));
 
-Kirkland Signature Eggs 5 Dozensuggested
-$9.39
-#1025795 Last bought Sep 19, 2026
-11 times
-costco.com ↗
+    const years = [...new Set(trips.map(t => t.date.slice(0, 4)))].sort().reverse();
+    $("#year").innerHTML = '<option value="">All years</option>' + years.map(y => `<option value="${y}"${y === state.year ? " selected" : ""}>${y}</option>`).join("");
+    if (state.year && !years.includes(state.year)) state.year = "";
+    const whs = [...new Set(trips.map(t => t.wh).filter(Boolean))].sort((a, b) => a === "ONLINE" ? -1 : b === "ONLINE" ? 1 : a.localeCompare(b));
+    $("#wh").innerHTML = '<option value="">All locations</option>' + whs.map(w => `<option value="${esc(w)}"${w === state.wh ? " selected" : ""}>${esc(titleCase(w))}</option>`).join("");
+    if (state.wh && !whs.includes(state.wh)) state.wh = "";
+    updateSummary();
+  }
 
-Spring Mix Salad 1 lbsuggested
-$4.99
-#48757 Last bought Sep 19, 2026
-4 times
-costco.com ↗
+  function updateSummary() {
+    if (!trips.length) { $("#summary").textContent = loading ? "Loading your history…" : "No purchases yet."; return; }
+    const oldest = trips[trips.length - 1].date, newest = trips[0].date;
+    let sync = "";
+    if (loading) sync = " Checking for updates…";
+    else if (usingCache) sync = " Showing the copy saved on this device; your Sheet couldn't be reached.";
+    else if (syncedAt) sync = " Up to date.";
+    $("#summary").textContent = `${trips.length.toLocaleString()} trips and ${lineCount.toLocaleString()} items, ${fmtMonth(oldest)} to ${fmtMonth(newest)}.${sync}`;
+  }
 
-Organic Celerysuggested
-$6.49
-#1036732 Last bought Sep 19, 2026
-2 times
-costco.com ↗
+  /* ---------- search, tolerant of receipt abbreviations ---------- */
+  const tokens = q => q.toLowerCase().split(/\s+/).filter(Boolean);
+  const words = s => String(s).toLowerCase().match(/[a-z0-9]+/g) || [];
+  function subseq(small, big) {
+    let j = 0;
+    for (const c of big) { if (c === small[j]) j++; if (j === small.length) return true; }
+    return false;
+  }
+  function textMatches(text, toks) {
+    const hay = String(text).toLowerCase(), ws = words(text);
+    return toks.every(t => hay.includes(t) ||
+      ws.some(w => w.length >= 3 && w[0] === t[0] && t.length > w.length && /[a-z]/.test(w) && subseq(w, t)));
+  }
+  const nameOf = n => names[n] || null;
+  const displayName = (n, d) => (nameOf(n) && nameOf(n).name) || d || `Item ${n}`;
+  const isSuggested = n => !!(nameOf(n) && nameOf(n).source !== "mine");
+  const itemText = (n, d) => { const x = nameOf(n); return `${x ? x.name + " " + (x.keywords || "") : ""} ${d || ""} ${n}`; };
 
-Nubz Dog Chews 2.6 lbsuggested
-$15.99
-#921485 Last bought Sep 19, 2026
-1 time
-costco.com ↗
+  const inScope = (date, wh) => (!state.year || date.startsWith(state.year)) && (!state.wh || wh === state.wh);
+  const keepBuy = b => inScope(b.date, b.wh) && !(state.hideReturns && b.ret);
+  const keepTrip = t => inScope(t.date, t.wh) && !(state.hideReturns && t.ret);
 
-Yum Giggles, 15 ozsuggested
-$12.89
-#2065823 Last bought Sep 9, 2026
-1 time
-costco.com ↗
+  function itemRows() {
+    const toks = tokens(state.q), out = [];
+    for (const it of items.values()) {
+      if (toks.length && !textMatches(itemText(it.n, it.d), toks)) continue;
+      const buys = it.buys.filter(keepBuy);
+      if (!buys.length) continue;
+      const purchases = buys.filter(b => !b.ret);
+      const last = purchases[0] || buys[0];
+      const prices = purchases.map(b => b.u).filter(u => u > 0);
+      out.push({
+        it, buys, last, name: displayName(it.n, it.d), count: purchases.length,
+        spent: buys.reduce((s, b) => s + b.net, 0),
+        min: prices.length ? Math.min(...prices) : 0, max: prices.length ? Math.max(...prices) : 0
+      });
+    }
+    const by = {
+      recent: (a, b) => b.last.date.localeCompare(a.last.date),
+      count: (a, b) => b.count - a.count || b.last.date.localeCompare(a.last.date),
+      spent: (a, b) => b.spent - a.spent,
+      name: (a, b) => a.name.localeCompare(b.name)
+    }[state.sort];
+    return out.sort(by);
+  }
 
-Crazy Cuizine Orange Chickensuggested
-$18.79
-#1143205 Last bought Sep 9, 2026
-4 times
-costco.com ↗
+  function tripRows() {
+    const toks = tokens(state.q);
+    return trips.filter(keepTrip).filter(t => !toks.length ||
+      textMatches(t.wh, toks) || t.lines.some(l => textMatches(itemText(l.n, l.d), toks)));
+  }
 
-Dino Buddies Chicken Nuggetssuggested
-$14.99
-#1560758 Last bought Sep 9, 2026
-1 time
-costco.com ↗
+  /* ---------- render: items ---------- */
+  function renderItem(r) {
+    const key_ = "i:" + r.it.n, open = state.open.has(key_);
+    let html = `<li class="entry"><div class="entryrow"><button class="row" type="button" data-key="${esc(key_)}" aria-expanded="${open}">
+      <span class="name">${esc(r.name)}${isSuggested(r.it.n) ? '<span class="sugtag">suggested</span>' : ""}</span>
+      <span class="price">${money(r.last.u)}</span>
+      <span class="sub"><span class="itemno">#${esc(r.it.n)}</span> Last bought ${fmtDate(r.last.date)}</span>
+      <span class="meta">${r.count} ${r.count === 1 ? "time" : "times"}</span>
+    </button><a class="rowlink" target="_blank" rel="noopener" href="${costcoUrl(r.it.n)}" aria-label="Find item ${esc(r.it.n)} on costco.com">costco.com ↗</a></div>`;
+    if (open) {
+      const paid = r.min === r.max ? money(r.min) : `${money(r.min)} to ${money(r.max)}`;
+      const mine = nameOf(r.it.n) && nameOf(r.it.n).source === "mine" ? nameOf(r.it.n).name : "";
+      html += `<div class="detail">
+        <a class="link" target="_blank" rel="noopener" href="${costcoUrl(r.it.n)}">Find item ${esc(r.it.n)} on costco.com ↗</a>
+        <dl class="facts">
+          <div><dt>Item number</dt><dd class="num">${esc(r.it.n)}</dd></div>
+          ${r.name !== r.it.d ? `<div><dt>On the receipt as</dt><dd>${esc(r.it.d)}</dd></div>` : ""}
+          <div><dt>Price paid</dt><dd class="num">${r.min ? paid : "—"}</dd></div>
+          <div><dt>Total spent</dt><dd class="num">${money(r.spent)}</dd></div>
+        </dl>
+        <div class="tape">
+          <div class="tl tl4 th"><span>Date</span><span>Qty</span><span>Each</span><span>Paid</span></div>
+          ${r.buys.map(b => `<div class="tl tl4">
+            <span>${fmtDate(b.date)}<span class="small">${esc(titleCase(b.wh))}${b.ret ? ", return" : (b.disc > 0 ? `, saved ${money(b.disc)}` : "")}</span></span>
+            <span>${esc(b.q)}</span><span>${money(b.u)}</span>
+            <span class="${b.net < 0 ? "neg" : ""}">${money(b.net)}</span></div>`).join("")}
+        </div>
+        <form class="rename" data-n="${esc(r.it.n)}">
+          <label>Your name for this item
+            <input name="alias" value="${esc(mine)}" placeholder="${esc(displayName(r.it.n, r.it.d))}" autocomplete="off">
+          </label>
+          <button class="btn ghost" type="submit">Save name</button>
+        </form>
+      </div>`;
+    }
+    return html + "</li>";
+  }
 
-Joyburst Juice 18pk/16.9ozsuggested
-$19.99
-#1780981 Last bought Sep 9, 2026
-4 times
-costco.com ↗
+  /* ---------- render: trips ---------- */
+  function renderTrip(t, toks) {
+    const key_ = "t:" + t.bc, open = state.open.has(key_), n = t.lines.length;
+    let html = `<li class="entry"><button class="row" type="button" data-key="${esc(key_)}" aria-expanded="${open}">
+      <span class="name">${fmtDate(t.date)}</span>
+      <span class="price${t.total < 0 ? " neg" : ""}">${money(t.total)}</span>
+      <span class="sub">${esc(titleCase(t.wh))}${t.ret ? ", return" : ""}</span>
+      <span class="meta">${n} ${n === 1 ? "item" : "items"}</span>
+    </button>`;
+    if (open) {
+      html += `<div class="detail"><div class="tape">
+        <div class="tl tl3 th"><span>Item</span><span>Qty</span><span>Paid</span></div>
+        ${t.lines.map(l => {
+          const hit = toks.length && textMatches(itemText(l.n, l.d), toks);
+          return `<div class="tl tl3${hit ? " hit" : ""}">
+            <span>${esc(displayName(l.n, l.d))}${l.n ? `<a class="tlink" target="_blank" rel="noopener" href="${costcoUrl(l.n)}">#${esc(l.n)} ↗</a>` : ""}${l.disc > 0 ? `<span class="small">Saved ${money(l.disc)}</span>` : ""}</span>
+            <span>${esc(l.q)}</span><span class="${l.net < 0 ? "neg" : ""}">${money(l.net)}</span></div>`;
+        }).join("")}
+        <div class="tl tl3 tf"><span>Before tax</span><span></span><span class="${t.total < 0 ? "neg" : ""}">${money(t.total)}</span></div>
+      </div></div>`;
+    }
+    return html + "</li>";
+  }
 
-Tampax Duo Tampons, 87 Countsuggested
-$14.99
-#1842854 Last bought Sep 9, 2026
-1 time
-costco.com ↗
+  /* ---------- render: stats ---------- */
+  function barRows(list, fmt) {
+    const max = Math.max(1, ...list.map(x => Math.abs(x.v)));
+    return `<div class="bars">${list.map(x =>
+      `<span class="lab">${esc(x.label)}</span><span class="bar" style="width:${Math.max(0.5, Math.abs(x.v) / max * 100).toFixed(1)}%"></span><span class="amt">${fmt(x.v)}</span>`
+    ).join("")}</div>`;
+  }
 
-Goldfish Crackers, 66 ozsuggested
-$11.74
-#1542070 Last bought Sep 9, 2026
-1 time
-costco.com ↗
+  function renderStats() {
+    const scoped = trips.filter(t => inScope(t.date, t.wh));
+    if (!scoped.length) return `<p class="count">No purchases in this year and location.</p>`;
+    let spent = 0, returned = 0, qty = 0;
+    const byMonth = new Map(), byWh = new Map(), itemSpend = new Map(), itemCount = new Map();
+    for (const t of scoped) {
+      for (const l of t.lines) {
+        if (l.net >= 0) { spent += l.net; qty += Math.max(0, l.q); } else returned += l.net;
+        const ym = t.date.slice(0, 7);
+        byMonth.set(ym, (byMonth.get(ym) || 0) + l.net);
+        byWh.set(t.wh, (byWh.get(t.wh) || 0) + l.net);
+        if (l.n) {
+          itemSpend.set(l.n, (itemSpend.get(l.n) || 0) + l.net);
+          if (!l.ret && l.q > 0) itemCount.set(l.n, (itemCount.get(l.n) || 0) + 1);
+        }
+      }
+    }
+    const buyTrips = scoped.filter(t => t.total > 0);
+    const net = spent + returned;
+    const months = [...byMonth.keys()].sort();
+    const monthList = months.slice(-24).reverse().map(m => ({ label: fmtMonShort(m), v: byMonth.get(m) }));
+    const whList = [...byWh.entries()].sort((a, b) => b[1] - a[1]).map(([w, v]) => ({ label: titleCase(w), v }));
+    const nm = n => displayName(n, (items.get(n) || {}).d);
+    const topSpend = [...itemSpend.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const topCount = [...itemCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
-Sukhi's Chicken Tikka Masalasuggested
-$15.99
-#951691 Last bought Sep 9, 2026
-3 times
-costco.com ↗
+    // Price changes: items bought at least 3 times in scope, first vs latest unit price.
+    const changes = [];
+    for (const it of items.values()) {
+      const b = it.buys.filter(x => !x.ret && x.u > 0 && inScope(x.date, x.wh));
+      if (b.length < 3) continue;
+      const latest = b[0], first = b[b.length - 1];
+      if (!first.u || latest.u === first.u) continue;
+      changes.push({ n: it.n, first, latest, pct: (latest.u - first.u) / first.u * 100 });
+    }
+    const ups = changes.filter(c => c.pct > 0).sort((a, b) => b.pct - a.pct).slice(0, 10);
+    const downs = changes.filter(c => c.pct < 0).sort((a, b) => a.pct - b.pct).slice(0, 6);
+    const changeTable = list => list.length ? `<table class="tbl"><tbody>${list.map(c => `<tr>
+      <td><button class="goto" type="button" data-goto="${esc(c.n)}">${esc(nm(c.n))}</button>
+        <div class="sub">${money(c.first.u)} in ${fmtMonShort(c.first.date.slice(0, 7))} → ${money(c.latest.u)} in ${fmtMonShort(c.latest.date.slice(0, 7))}</div></td>
+      <td class="r ${c.pct > 0 ? "neg" : "pos"}">${c.pct > 0 ? "+" : ""}${c.pct.toFixed(0)}%</td></tr>`).join("")}</tbody></table>`
+      : `<p class="count">None in this range.</p>`;
+    const itemTable = (list, fmt) => `<table class="tbl"><tbody>${list.map(([n, v]) => `<tr>
+      <td><button class="goto" type="button" data-goto="${esc(n)}">${esc(nm(n))}</button></td><td class="r">${fmt(v)}</td></tr>`).join("")}</tbody></table>`;
 
-Basmati Rice, 20 lbsuggested
-$19.99
-#132666 Last bought Sep 9, 2026
-1 time
-costco.com ↗
+    return `<div class="stat">
+      <div class="kpis">
+        <div class="kpi"><div class="v">${money0(net)}</div><div class="l">Spent, after returns</div></div>
+        <div class="kpi"><div class="v">${buyTrips.length}</div><div class="l">Shopping trips and orders</div></div>
+        <div class="kpi"><div class="v">${money0(buyTrips.length ? spent / buyTrips.length : 0)}</div><div class="l">Average per trip</div></div>
+        <div class="kpi"><div class="v">${money0(-returned)}</div><div class="l">Returned</div></div>
+      </div>
+      <h2>Price changes</h2>
+      <p class="hint">Things you've bought at least three times, comparing the first price you paid with the latest. Prices are before instant savings.</p>
+      <h3 class="sub" style="margin:.4rem 0">Went up</h3>
+      ${changeTable(ups)}
+      <h3 class="sub" style="margin:1rem 0 .4rem">Went down</h3>
+      ${changeTable(downs)}
+      <h2>By month</h2>
+      ${barRows(monthList, money0)}
+      <h2>By location</h2>
+      ${barRows(whList, money0)}
+      <h2>Most spent on</h2>
+      ${itemTable(topSpend, money0)}
+      <h2>Bought most often</h2>
+      ${itemTable(topCount, v => v + "×")}
+    </div>`;
+  }
 
-Dot's Pretzelssuggested
-$9.99
-#1751772 Last bought Sep 9, 2026
-2 times
-costco.com ↗
+  /* ---------- main render ---------- */
+  function render() {
+    document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === state.view)));
+    $("#searchWrap").hidden = state.view === "stats";
+    $("#sort").hidden = state.view !== "items";
+    $(".check").hidden = state.view === "stats";
 
-KS Organic Broccoli 4/1 lbsuggested
-$9.89
-#1217608 Last bought Sep 9, 2026
-16 times
-costco.com ↗
+    const res = $("#results");
+    if (!trips.length) {
+      res.innerHTML = loading ? "" : `<div class="empty"><h2>No purchases yet</h2>
+        <p>Run the Costco import script on costco.com. When it finishes, come back here and choose Paste import.</p></div>`;
+      return;
+    }
+    if (state.view === "stats") { res.innerHTML = renderStats(); return; }
 
-Lutec Solar Security Lightsuggested
-$29.99
-#1937995 Last bought Sep 5, 2026
-2 times
-costco.com ↗
+    const toks = tokens(state.q);
+    const rows = state.view === "items" ? itemRows() : tripRows();
+    const shown = rows.slice(0, state.limit);
+    const noun = state.view === "items" ? (rows.length === 1 ? "item" : "items") : (rows.length === 1 ? "trip" : "trips");
+    if (!rows.length) { res.innerHTML = `<p class="count">Nothing matches. Try fewer words, or check the year and location.</p>`; return; }
+    res.innerHTML =
+      `<p class="count">${rows.length.toLocaleString()} ${noun}${shown.length < rows.length ? `, showing ${shown.length}` : ""}</p>
+       <ul class="list">${shown.map(r => state.view === "items" ? renderItem(r) : renderTrip(r, toks)).join("")}</ul>
+       ${shown.length < rows.length ? `<div class="more"><button class="btn ghost" type="button" id="more">Show more</button></div>` : ""}`;
+  }
 
-Titan Cooler Clear with Ice Wallssuggested
-$39.99
-#1356928 Last bought Sep 4, 2026
-0 times
-costco.com ↗
+  /* ---------- toast ---------- */
+  let toastTimer;
+  function toast(msg, sticky) {
+    const el = $("#status");
+    el.textContent = msg; el.classList.add("show");
+    clearTimeout(toastTimer);
+    if (!sticky) toastTimer = setTimeout(() => el.classList.remove("show"), 4500);
+  }
 
-Kirkland Signature Vanilla Extract, 16 ozsuggested
-$9.99
-#32911 Last bought Sep 4, 2026
-1 time
-costco.com ↗
+  /* ---------- load / sync ---------- */
+  function saveCache() {
+    ls.set(CACHE_STORE, JSON.stringify({ rows: rawRows, names, at: Date.now() }));
+  }
 
-La Dolce Vita Biscottisuggested
-$12.99
-#219854 Last bought Sep 4, 2026
-1 time
-costco.com ↗
+  async function sync() {
+    if (loading) return;
+    loading = true; updateSummary();
+    try {
+      const j = await api({ action: "getPurchases" });
+      usingCache = false; syncedAt = Date.now();
+      ingest(j.rows, j.names);
+      saveCache();
+    } catch (e) {
+      if (e.code === "bad_key") { loading = false; showGate("That passphrase no longer matches. Enter it again."); return; }
+      usingCache = trips.length > 0;
+      if (!trips.length) $("#notice").innerHTML = `<div class="note warn">Couldn't reach your Sheet. Check your connection and choose More, then Refresh from Sheet.</div>`;
+    } finally {
+      loading = false; updateSummary(); render();
+    }
+  }
 
-Kirkland Signature Rechargeable Auto Light, 3500 Lumensuggested
-$24.97
-#2015637 Last bought Sep 4, 2026
-1 time
-costco.com ↗
+  function start() {
+    $("#gate").hidden = true; $("#app").hidden = false; $("#topActions").hidden = false;
+    const cached = ls.get(CACHE_STORE);
+    if (cached) {
+      try { const c = JSON.parse(cached); ingest(c.rows, c.names); usingCache = true; } catch {}
+    }
+    render();
+    sync();
+  }
 
-Organic Strawberries 2lbsuggested
-$7.99
-#512515 Last bought Sep 4, 2026
-9 times
-costco.com ↗
+  function showGate(msg) {
+    ls.del(KEY_STORE); key = null;
+    $("#app").hidden = true; $("#topActions").hidden = true; $("#gate").hidden = false;
+    $("#summary").textContent = "Your purchases, from your Google Sheet.";
+    $("#gateErr").textContent = msg || "";
+    $("#gateKey").value = ""; $("#gateKey").focus();
+  }
 
-Address Signsuggested
-$34.99
-#1938018 Last bought Sep 4, 2026
-2 times
-costco.com ↗
+  $("#gateForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const k = $("#gateKey").value;
+    if (!k) return;
+    $("#gateGo").disabled = true; $("#gateErr").textContent = "Checking…";
+    key = k;
+    try {
+      await api({ action: "checkKey" });
+      ls.set(KEY_STORE, k);
+      $("#gateErr").textContent = "";
+      start();
+    } catch (err) {
+      key = null;
+      $("#gateErr").textContent = err.code === "bad_key" ? "That passphrase didn't match." : "Couldn't reach your Sheet. Check your connection and try again.";
+    } finally { $("#gateGo").disabled = false; }
+  });
 
-Chefman Electric Kettlesuggested
-$29.99
-#4446542 Last bought Sep 3, 2026
-1 time
-costco.com ↗
+  /* ---------- names ---------- */
+  function backups() { try { return JSON.parse(ls.get(BACKUP_STORE) || "{}"); } catch { return {}; } }
 
-Titan 40 Can Coolersuggested
-$14.97
-#1985394 Last bought Sep 3, 2026
-1 time
-costco.com ↗
+  async function saveName(n, v) {
+    v = v.trim();
+    const prev = nameOf(n);
+    const bk = backups();
+    try {
+      if (v) {
+        if (prev && prev.source !== "mine") { bk[n] = prev; ls.set(BACKUP_STORE, JSON.stringify(bk)); }
+        await api({ action: "saveNames", names: [{ itemNumber: n, name: v, source: "mine" }] });
+        names[n] = { name: v, keywords: prev ? prev.keywords : "", source: "mine" };
+        toast("Name saved");
+      } else {
+        if (!prev || prev.source !== "mine") return;
+        await api({ action: "saveNames", names: [{ itemNumber: n, name: "", source: "mine" }] });
+        delete names[n];
+        if (bk[n]) {
+          await api({ action: "saveNames", names: [{ itemNumber: n, name: bk[n].name, keywords: bk[n].keywords, source: "suggested" }] });
+          names[n] = bk[n]; delete bk[n]; ls.set(BACKUP_STORE, JSON.stringify(bk));
+        }
+        toast("Your name removed");
+      }
+      saveCache(); render();
+    } catch (e) {
+      if (e.code === "bad_key") return showGate("That passphrase no longer matches. Enter it again.");
+      toast("Couldn't save the name. Check your connection and try again.");
+    }
+  }
 
-Scrub Daddy Brushsuggested
-$16.97
-#1882120 Last bought Sep 3, 2026
-1 time
-costco.com ↗
+  /* ---------- paste import ---------- */
+  function parseCSV(t) {
+    const out = []; let row = [], f = "", q = false;
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (q) {
+        if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; }
+        else f += c;
+      } else if (c === '"') q = true;
+      else if (c === ",") { row.push(f); f = ""; }
+      else if (c === "\n") { row.push(f); out.push(row); row = []; f = ""; }
+      else if (c !== "\r") f += c;
+    }
+    if (f || row.length) { row.push(f); out.push(row); }
+    return out;
+  }
+  const looksLikeExport = t => /^\uFEFF?date,warehouse,barcode,itemNumber/.test(String(t || "").trim());
 
-Cabinet Light 3 Pack with Remotesuggested
-$27.99
-#1938108 Last bought Aug 30, 2026
-1 time
-costco.com ↗
+  let importing = false;
+  async function importText(text) {
+    if (importing) return;
+    const rows = parseCSV(String(text).replace(/^\uFEFF/, "").trim());
+    const head = (rows.shift() || []).map(h => h.trim());
+    const idx = Object.fromEntries(head.map((h, i) => [h, i]));
+    const NUM = { quantity: 1, unitPrice: 1, amount: 1, discount: 1, netAmount: 1 };
+    const list = [];
+    for (const r of rows) {
+      if (r.length < 4) continue;
+      const o = {};
+      for (const c of COLS) { const v = idx[c] != null ? (r[idx[c]] ?? "") : ""; o[c] = NUM[c] ? (parseFloat(v) || 0) : String(v).trim(); }
+      if (o.barcode && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) list.push(o);
+    }
+    if (!list.length) { toast("No purchases found in what was pasted."); return; }
 
-Vine Tomatoessuggested
-$6.59
-#21020 Last bought Aug 30, 2026
-6 times
-costco.com ↗
+    const byTrip = new Map();
+    for (const o of list) { if (!byTrip.has(o.barcode)) byTrip.set(o.barcode, []); byTrip.get(o.barcode).push(o); }
+    const batches = []; let cur = [];
+    for (const lines of byTrip.values()) {
+      if (cur.length && cur.length + lines.length > 400) { batches.push(cur); cur = []; }
+      cur = cur.concat(lines);
+    }
+    if (cur.length) batches.push(cur);
 
-Teriyaki Udon Noodles, 30.9 ozsuggested
-$8.69
-#2062082 Last bought Aug 30, 2026
-1 time
-costco.com ↗
+    importing = true; $("#pasteBtn").disabled = true;
+    let added = 0, skipped = 0;
+    try {
+      for (let i = 0; i < batches.length; i++) {
+        toast(`Saving to your Sheet… batch ${i + 1} of ${batches.length}`, true);
+        const r = await api({ action: "importPurchases", rows: batches[i] });
+        added += r.addedTrips; skipped += r.skippedTrips;
+      }
+      toast(added ? `Added ${added} new ${added === 1 ? "trip" : "trips"}. ${skipped} were already here.` : `Nothing new: all ${skipped} trips were already here.`);
+      await sync();
+    } catch (e) {
+      if (e.code === "bad_key") return showGate("That passphrase no longer matches. Enter it again.");
+      toast(`Stopped partway (${e.message}). Paste again to finish; saved trips are skipped.`);
+    } finally {
+      importing = false; $("#pasteBtn").disabled = false;
+    }
+  }
 
-Mushrooms 1.5 lbsuggested
-$3.89
-#19813 Last bought Aug 30, 2026
-9 times
-costco.com ↗
+  function openPastePanel() {
+    $("#notice").innerHTML = `<div class="panelbox">
+      <p>Paste what the Costco import script copied (Ctrl+V, or long-press and Paste), then choose Import. Trips you already have are skipped.</p>
+      <label class="sr" for="pasteArea">Copied purchases</label>
+      <textarea id="pasteArea" class="pastebox" spellcheck="false" placeholder="date,warehouse,barcode,itemNumber,…"></textarea>
+      <div class="row2"><button class="btn" type="button" id="pasteGo">Import</button>
+      <button class="btn ghost" type="button" id="pasteCancel">Cancel</button></div></div>`;
+    $("#pasteArea").focus();
+    $("#pasteCancel").onclick = () => { $("#notice").innerHTML = ""; };
+    $("#pasteGo").onclick = () => {
+      const t = $("#pasteArea").value;
+      if (!t.trim()) return toast("Nothing pasted yet.");
+      if (!looksLikeExport(t)) return toast("That isn't the import script's output. The first line should start with date,warehouse,barcode.");
+      $("#notice").innerHTML = "";
+      importText(t);
+    };
+  }
 
-Sabatino's Chicken Piccatasuggested
-$13.99
-#1845747 Last bought Aug 30, 2026
-1 time
-costco.com ↗
+  /* ---------- events ---------- */
+  let qTimer;
+  $("#q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { state.q = e.target.value; state.limit = 60; render(); }, 120); });
+  document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => { state.view = b.dataset.view; state.limit = 60; render(); window.scrollTo(0, 0); }));
+  $("#year").addEventListener("change", e => { state.year = e.target.value; state.limit = 60; render(); });
+  $("#wh").addEventListener("change", e => { state.wh = e.target.value; state.limit = 60; render(); });
+  $("#sort").addEventListener("change", e => { state.sort = e.target.value; render(); });
+  $("#hideReturns").addEventListener("change", e => { state.hideReturns = e.target.checked; state.limit = 60; render(); });
 
-Boneless Skinless Chicken Breastsuggested
-$2.99
-#47735 Last bought Aug 30, 2026
-2 times
-costco.com ↗
+  $("#results").addEventListener("click", e => {
+    const row = e.target.closest(".row");
+    if (row) {
+      const k = row.dataset.key;
+      state.open.has(k) ? state.open.delete(k) : state.open.add(k);
+      render();
+      const again = document.querySelector(`.row[data-key="${CSS.escape(k)}"]`);
+      if (again) again.focus({ preventScroll: true });
+      return;
+    }
+    const go = e.target.closest("[data-goto]");
+    if (go) {
+      const n = go.dataset.goto;
+      state.view = "items"; state.q = n; $("#q").value = n; state.open = new Set(["i:" + n]); state.limit = 60;
+      render(); window.scrollTo(0, 0);
+      return;
+    }
+    if (e.target.id === "more") { state.limit += 60; render(); }
+  });
+  $("#results").addEventListener("submit", e => {
+    const form = e.target.closest(".rename");
+    if (!form) return;
+    e.preventDefault();
+    saveName(form.dataset.n, form.elements.alias.value);
+  });
 
-La Boulangere Sliced Brioche Breadsuggested
-$9.99
-#1513389 Last bought Aug 30, 2026
-1 time
-costco.com ↗
+  $("#pasteBtn").addEventListener("click", openPastePanel);
+  $("#refreshBtn").addEventListener("click", () => { $("#menu").open = false; sync(); });
+  $("#forgetBtn").addEventListener("click", () => {
+    $("#menu").open = false;
+    ls.del(CACHE_STORE); ls.del(BACKUP_STORE);
+    trips = []; items = new Map(); rawRows = []; names = {};
+    showGate("This device no longer has your passphrase or saved copy.");
+  });
+  document.addEventListener("click", e => { if (!e.target.closest("#menu")) $("#menu").open = false; });
 
-Jumbo Llama Plushsuggested
-$12.99
-#2873085 Last bought Aug 30, 2026
-1 time
-costco.com ↗
+  // Ctrl+V anywhere outside a text field imports directly.
+  document.addEventListener("paste", e => {
+    if (!key || $("#app").hidden) return;
+    const tgt = e.target;
+    if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) return;
+    const t = e.clipboardData && e.clipboardData.getData("text");
+    if (t && looksLikeExport(t)) { e.preventDefault(); importText(t); }
+  });
 
-Kirkland Signature Cooked Bacon, 48-50 Slicessuggested
-$12.99
-#1601187 Last bought Aug 30, 2026
-1 time
-costco.com ↗
+  // Re-sync when the app comes back to the foreground after a while.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && key && syncedAt && Date.now() - syncedAt > 10 * 60 * 1000) sync();
+  });
 
-Andouille Style Chicken Sausage 12/4ozsuggested
-$14.99
-#1451835 Last bought Aug 30, 2026
-2 times
-costco.com ↗
-
-Gold Kiwi 3 lbssuggested
-$11.39
-#6995 Last bought Aug 30, 2026
-8 times
-costco.com ↗
-
-Kirkland Signature Sport Shirtsuggested
-$4.97
-#1974728 Last bought Aug 30, 2026
-1 time
-costco.com ↗
-
-S/O Cryovac Beef Belly Vacuum Packagedsuggested
-$3.99
-#18321 Last bought Aug 30, 2026
-4 times
-costco.com ↗
-
-Philips 5CCT LED Light, 4 Packsuggested
-$15.99
-#1938101 Last bought Aug 30, 2026
-1 time
-costco.com ↗
-Show more
+  if (key) start(); else showGate();
+})();
+</script>
+</body>
+</html>
